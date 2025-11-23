@@ -39,16 +39,98 @@
             color: white;       /* 强制文字变白 */
         }
 
-        /* 1. 视频层 (最底层) */
-        .bg-video {
+        /* Canvas 背景层 */
+        #starry-canvas {
             position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%); /* 居中 */
-            min-width: 100%; 
-            min-height: 100%;
-            width: auto; height: auto;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             z-index: 0;
-            object-fit: cover; /* 铺满不变形 */
+            background: #000;
+            display: block;
+            pointer-events: auto; /* 确保可以接收鼠标事件 */
+        }
+        
+        /* 渐变淡出效果 */
+        .header-gradient-fade {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 96px; /* 24 * 4 = 96px */
+            background: linear-gradient(to top, var(--bg-color), transparent);
+            z-index: 1;
+            pointer-events: none;
+        }
+        
+        /* 控制面板样式（可选） */
+        .starry-controls {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 50;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        
+        .starry-controls:hover {
+            opacity: 1;
+        }
+        
+        .starry-controls input {
+            width: 100%;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: white;
+            text-align: center;
+            font-size: 12px;
+            text-transform: uppercase;
+            font-family: var(--font-mono);
+        }
+        
+        .starry-controls input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .control-btn {
+            flex: 1;
+            padding: 6px 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: var(--font-mono);
+        }
+        
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .control-btn.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.5);
+            color: rgb(191, 219, 254);
         }
 
         /* 2. 遮罩层 (中间层) - 让文字更清晰 */
@@ -58,6 +140,7 @@
             width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.4); /* 0.4 是黑色透明度，可调 */
             z-index: 1;
+            pointer-events: none; /* 不阻挡鼠标事件，让 canvas 可以接收交互 */
         }
 
         /* 3. 内容层 (最上层) */
@@ -71,6 +154,14 @@
             align-items: flex-end;
             flex-wrap: wrap; /* 手机上允许换行 */
             gap: 20px;
+            pointer-events: none; /* 不阻挡鼠标事件，让 canvas 可以接收交互 */
+        }
+        
+        /* 但文字内容本身需要可以点击，所以内部的链接等需要恢复 pointer-events */
+        .header-content a,
+        .header-content button,
+        .header-content input {
+            pointer-events: auto;
         }
 
         /* 头部大标题 */
@@ -583,17 +674,26 @@
     <!-- ========================================= -->
     <!-- ✅ 新的：头部结构 (替换开始)               -->
     <!-- ========================================= -->
-    <header>
-        <!-- 1. 背景视频 (必须静音 muted 才能自动播放) -->
-        <video class="bg-video" autoplay muted loop playsinline>
-            <!-- ⚠️ 确保你的 assets 文件夹里有 header-bg.mp4 -->
-            <source src="./assets/header-bg.mp4" type="video/mp4">
-        </video>
-
-        <!-- 2. 黑色遮罩 -->
+    <header id="starry-header">
+        <!-- Canvas 背景层 -->
+        <canvas id="starry-canvas"></canvas>
+        
+        <!-- 渐变淡出效果 -->
+        <div class="header-gradient-fade"></div>
+        
+        <!-- 黑色遮罩 -->
         <div class="overlay"></div>
-
-        <!-- 3. 文字内容 -->
+        
+        <!-- 控制面板（可选，右上角） -->
+        <div class="starry-controls" style="display: none;">
+            <input type="text" id="starry-text" value="MG-MANGO" maxlength="10" placeholder="输入文字" />
+            <div class="control-buttons">
+                <button id="toggle-constellations" class="control-btn active">星座</button>
+                <button id="toggle-density" class="control-btn">密度</button>
+            </div>
+        </div>
+        
+        <!-- 文字内容 -->
         <div class="header-content">
             <!-- 👇 这里改大标题 -->
             <h1>
@@ -629,6 +729,371 @@
     <div class="gallery" id="app"></div>
 
     <script>
+        // ========================================================
+        // 🌟 StarryCanvas 实现（星空粒子背景）
+        // ========================================================
+        
+        // 配置常量 - 性能优化版本
+        const STARRY_CONFIG = {
+            particleBaseSize: 1.2,  // 稍微减小粒子大小
+            assembleSpeed: 0.06,
+            friction: 0.92,
+            mouseRadius: 120,
+            mousePush: 5,
+            returnForce: 0.003,
+            bgStarCount: 30,  // 从 120 减少到 30，大幅降低性能消耗
+            colors: [
+                '#ffffff', // Pure White
+                '#ccebff', // Blue-ish White
+                '#ffd9b3', // Warm White
+                '#a3b8ff', // Deep Blue
+            ]
+        };
+        
+        // Particle 类（文字粒子）
+        class Particle {
+            constructor(x, y, canvasWidth, canvasHeight) {
+                // 添加轻微随机偏移，避免完美像素网格
+                this.originX = x + (Math.random() - 0.5) * 2;
+                this.originY = y + (Math.random() - 0.5) * 2;
+                
+                // 初始随机生成位置
+                this.x = Math.random() * canvasWidth;
+                this.y = Math.random() * canvasHeight;
+                
+                this.vx = (Math.random() - 0.5) * 1;
+                this.vy = (Math.random() - 0.5) * 1;
+                
+                this.size = Math.random() * STARRY_CONFIG.particleBaseSize + 0.5;
+                this.color = STARRY_CONFIG.colors[Math.floor(Math.random() * STARRY_CONFIG.colors.length)];
+                
+                this.angle = Math.random() * Math.PI * 2;
+                this.blinkSpeed = 0.02 + Math.random() * 0.03;
+                this.blinkOffset = Math.random() * Math.PI * 2;
+            }
+            
+            update(mouse, width, height) {
+                // 1. 鼠标交互
+                if (mouse.x != null && mouse.y != null) {
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < STARRY_CONFIG.mouseRadius) {
+                        const forceDirectionX = dx / distance;
+                        const forceDirectionY = dy / distance;
+                        const force = (STARRY_CONFIG.mouseRadius - distance) / STARRY_CONFIG.mouseRadius;
+                        const direction = -1;
+                        
+                        this.vx += forceDirectionX * force * STARRY_CONFIG.mousePush * direction;
+                        this.vy += forceDirectionY * force * STARRY_CONFIG.mousePush * direction;
+                    }
+                }
+                
+                // 2. 返回原点
+                const dx = this.originX - this.x;
+                const dy = this.originY - this.y;
+                
+                // 呼吸运动
+                const breatheX = Math.cos(Date.now() / 2000 + this.originY * 0.01) * 2.0;
+                const breatheY = Math.sin(Date.now() / 2000 + this.originX * 0.01) * 2.0;
+                
+                this.vx += (dx + breatheX) * STARRY_CONFIG.returnForce;
+                this.vy += (dy + breatheY) * STARRY_CONFIG.returnForce;
+                
+                // 3. 摩擦力
+                this.vx *= STARRY_CONFIG.friction;
+                this.vy *= STARRY_CONFIG.friction;
+                
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+            
+            draw(ctx) {
+                const alpha = 0.5 + 0.5 * Math.abs(Math.sin(Date.now() * 0.001 * this.blinkSpeed + this.blinkOffset));  // 从 0.3+0.7 改为 0.5+0.5，提高最低亮度
+                
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = this.size * 2;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        // BackgroundStar 类（背景星星）- 优化版本
+        class BackgroundStar {
+            constructor(w, h) {
+                this.x = Math.random() * w;
+                this.y = Math.random() * h;
+                this.size = Math.random() * 1.2 + 0.3;  // 稍微减小
+                this.speed = Math.random() * 0.03 + 0.01;  // 稍微减慢
+                this.alpha = Math.random() * 0.2 + 0.1;  // 缓存 alpha 值，避免每帧计算
+            }
+            
+            update(w, h) {
+                this.x -= this.speed;
+                if (this.x < 0) this.x = w;
+            }
+            
+            draw(ctx) {
+                ctx.save();
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;  // 使用缓存的 alpha
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        // StarryCanvas 初始化函数
+        function initStarryCanvas() {
+            const header = document.getElementById('starry-header');
+            const canvas = document.getElementById('starry-canvas');
+            
+            if (!header || !canvas) {
+                console.warn('StarryCanvas: header 或 canvas 元素未找到');
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.warn('StarryCanvas: 无法获取 canvas context');
+                return;
+            }
+            
+            let particles = [];
+            let bgStars = [];
+            let mouse = { x: null, y: null };
+            let dimensions = { width: 0, height: 0 };
+            let animationId = null;
+            let text = 'MG-MANGO';
+            let showConstellations = true;
+            let density = 8;  // 从 15 改为 8（更小的值 = 更多的粒子，平衡性能和效果）
+            
+            // 更新粒子（从文字生成）
+            function updateParticles() {
+                if (dimensions.width === 0 || dimensions.height === 0) return;
+                
+                canvas.width = dimensions.width;
+                canvas.height = dimensions.height;
+                
+                const { width, height } = dimensions;
+                
+                // 检测方向
+                const isPortrait = height > width;
+                const textY = isPortrait ? height * 0.3 : height * 0.5;
+                
+                // 字体大小计算
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                if (!tempCtx) return;
+                
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                
+                let fontSize = 400;
+                // 使用系统字体，如果没有 Cinzel 字体
+                tempCtx.font = `700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
+                
+                const targetWidth = width * 0.85;
+                const textMetrics = tempCtx.measureText(text);
+                
+                if (textMetrics.width > targetWidth) {
+                    fontSize = Math.floor(fontSize * (targetWidth / textMetrics.width));
+                }
+                
+                const maxH = isPortrait ? height * 0.35 : height * 0.6;
+                if (fontSize > maxH) {
+                    fontSize = maxH;
+                }
+                
+                tempCtx.font = `700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
+                tempCtx.fillStyle = 'white';
+                tempCtx.textAlign = 'center';
+                tempCtx.textBaseline = 'middle';
+                tempCtx.fillText(text, width / 2, textY);
+                
+                // 采样逻辑 - 优化版本（产生更少的粒子）
+                const imageData = tempCtx.getImageData(0, 0, width, height);
+                const data = imageData.data;
+                const newParticles = [];
+                
+                const qualityFactor = density / 6;  // density = 8 时，qualityFactor = 1.33
+                const step = Math.max(2, Math.floor((fontSize / 30) * qualityFactor));  // 从 25 改为 30，从 3 改为 2，产生更多粒子
+                
+                for (let y = 0; y < height; y += step) {
+                    for (let x = 0; x < width; x += step) {
+                        const index = (y * width + x) * 4;
+                        if (data[index + 3] > 128) {
+                            newParticles.push(new Particle(x, y, width, height));
+                        }
+                    }
+                }
+                
+                particles = newParticles;
+            }
+            
+            // 动画循环 - 调亮版本
+            function animate() {
+                // 清除画布（降低清除强度，让画面更亮）
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';  // 从 0.5 改为 0.3，降低清除强度
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 渐晕效果（降低暗度）
+                const gradient = ctx.createRadialGradient(
+                    canvas.width / 2, canvas.height / 2, canvas.width / 4,
+                    canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height)
+                );
+                gradient.addColorStop(0, 'rgba(0,0,0,0)');
+                gradient.addColorStop(1, 'rgba(0,0,0,0.3)');  // 从 0.5 改为 0.3，降低暗度
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 绘制背景星星（数量已大幅减少）
+                bgStars.forEach(star => {
+                    star.update(canvas.width, canvas.height);
+                    star.draw(ctx);
+                });
+                
+                // 绘制前景粒子
+                ctx.globalCompositeOperation = 'lighter';
+                particles.forEach(p => {
+                    p.update(mouse, canvas.width, canvas.height);
+                    p.draw(ctx);
+                });
+                
+                // 星座连线 - 优化版本（减少计算）
+                if (showConstellations && particles.length > 0) {
+                    ctx.strokeStyle = 'rgba(130, 210, 255, 0.15)';  // 稍微降低透明度
+                    ctx.lineWidth = 0.5;  // 稍微减小线宽
+                    ctx.beginPath();
+                    
+                    const particleCount = particles.length;
+                    const lookAhead = Math.min(20, Math.floor(particleCount / 10));  // 动态调整 lookAhead
+                    const maxDist = 50;  // 从 60 减少到 50
+                    const maxDistSq = maxDist * maxDist;
+                    
+                    // 优化：只检查部分粒子，减少计算量
+                    const checkInterval = Math.max(1, Math.floor(particleCount / 200));  // 每 N 个粒子检查一次
+                    
+                    for (let i = 0; i < particleCount; i += checkInterval) {
+                        const p1 = particles[i];
+                        const endJ = Math.min(i + lookAhead, particleCount);
+                        
+                        for (let j = i + checkInterval; j < endJ; j += checkInterval) {
+                            const p2 = particles[j];
+                            
+                            const dx = p1.x - p2.x;
+                            const dy = p1.y - p2.y;
+                            
+                            // 快速边界检查
+                            if (Math.abs(dx) > maxDist || Math.abs(dy) > maxDist) continue;
+                            
+                            const distSq = dx * dx + dy * dy;
+                            
+                            if (distSq < maxDistSq) {
+                                if ((i * j + i) % 8 === 0) {  // 从 6 改为 8，减少连线数量
+                                    ctx.moveTo(p1.x, p1.y);
+                                    ctx.lineTo(p2.x, p2.y);
+                                }
+                            }
+                        }
+                    }
+                    ctx.stroke();
+                }
+                
+                ctx.globalCompositeOperation = 'source-over';
+                animationId = requestAnimationFrame(animate);
+            }
+            
+            // 鼠标/触摸交互
+            function getRelativeCoords(clientX, clientY) {
+                const rect = canvas.getBoundingClientRect();
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            }
+            
+            function handleMouseMove(e) {
+                mouse = getRelativeCoords(e.clientX, e.clientY);
+            }
+            
+            function handleTouchMove(e) {
+                if (e.touches.length > 0) {
+                    mouse = getRelativeCoords(e.touches[0].clientX, e.touches[0].clientY);
+                }
+            }
+            
+            function handleMouseLeave() {
+                mouse = { x: null, y: null };
+            }
+            
+            function handleTouchEnd() {
+                mouse = { x: null, y: null };
+            }
+            
+            // ResizeObserver 监听容器尺寸
+            const resizeObserver = new ResizeObserver((entries) => {
+                if (!entries || entries.length === 0) return;
+                
+                const { width, height } = entries[0].contentRect;
+                dimensions = { width, height };
+                
+                // 重新初始化背景星星
+                bgStars = [];
+                for (let i = 0; i < STARRY_CONFIG.bgStarCount; i++) {
+                    bgStars.push(new BackgroundStar(width, height));
+                }
+                
+                // 更新粒子
+                updateParticles();
+            });
+            
+            resizeObserver.observe(header);
+            
+            // 绑定事件
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('touchmove', handleTouchMove);
+            canvas.addEventListener('mouseleave', handleMouseLeave);
+            canvas.addEventListener('touchend', handleTouchEnd);
+            
+            // 启动动画
+            animate();
+            
+            // 控制面板事件处理
+            const textInput = document.getElementById('starry-text');
+            const toggleConstellations = document.getElementById('toggle-constellations');
+            const toggleDensity = document.getElementById('toggle-density');
+            
+            if (textInput) {
+                textInput.addEventListener('input', (e) => {
+                    text = e.target.value.toUpperCase() || 'MG-MANGO';
+                    updateParticles();
+                });
+            }
+            
+            if (toggleConstellations) {
+                toggleConstellations.addEventListener('click', () => {
+                    showConstellations = !showConstellations;
+                    toggleConstellations.classList.toggle('active');
+                });
+            }
+            
+            if (toggleDensity) {
+                toggleDensity.addEventListener('click', () => {
+                    density = density === 6 ? 10 : 6;
+                    toggleDensity.textContent = density === 6 ? 'HIGH' : 'LOW';
+                    toggleDensity.classList.toggle('active');
+                    updateParticles();
+                });
+            }
+        }
+        
         // ========================================================
         // 🎬 视频播放控制函数（移动端优化）
         // ========================================================
@@ -862,14 +1327,50 @@
             // 这是最可靠的方法，因为占位符的高度就是封面图的实际显示高度
             let finalHeight = 0;
             
-            // 优先使用点击时保存的高度（最可靠，在点击时立即获取）
-            const savedHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
-            if (savedHeight > 0) {
-                finalHeight = savedHeight;
-                debugLog('fadeInVideo: 使用点击时保存的高度:', finalHeight);
+            // 优先使用封面图的当前显示高度（确保与封面图保持一致）
+            const coverImg = placeholder.querySelector('.video-cover');
+            if (coverImg) {
+                let coverCurrentHeight = coverImg.offsetHeight || coverImg.clientHeight;
+                
+                // 如果 offsetHeight 不可用，使用 getBoundingClientRect 获取封面图的实际显示尺寸
+                if (!coverCurrentHeight || coverCurrentHeight === 0) {
+                    const coverRect = coverImg.getBoundingClientRect();
+                    coverCurrentHeight = coverRect.height;
+                }
+                
+                // 如果仍然为0，使用封面图的显示宽度和宽高比计算
+                if (!coverCurrentHeight || coverCurrentHeight === 0) {
+                    const coverRect = coverImg.getBoundingClientRect();
+                    const coverDisplayWidth = coverRect.width || coverImg.offsetWidth || (container ? container.offsetWidth : 0);
+                    if (coverDisplayWidth > 0 && coverImg.naturalHeight > 0 && coverImg.naturalWidth > 0) {
+                        const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
+                        coverCurrentHeight = coverDisplayWidth * aspectRatio;
+                        debugLog('使用封面图显示宽度计算高度:', coverCurrentHeight, '显示宽度:', coverDisplayWidth, '原始尺寸:', coverImg.naturalWidth + 'x' + coverImg.naturalHeight);
+                    } else if (coverImg.naturalHeight > 0 && coverImg.naturalWidth > 0) {
+                        // 最后备选：使用容器宽度和宽高比计算
+                        const containerWidth = container ? (container.offsetWidth || container.clientWidth) : window.innerWidth;
+                        const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
+                        coverCurrentHeight = containerWidth * aspectRatio;
+                        debugLog('使用容器宽度计算高度（备选）:', coverCurrentHeight, '容器宽度:', containerWidth);
+                    }
+                }
+                
+                if (coverCurrentHeight > 0) {
+                    finalHeight = coverCurrentHeight;
+                    debugLog('fadeInVideo: 使用封面图当前高度:', finalHeight);
+                }
             }
             
-            // 如果保存的高度不可用，使用占位符的当前高度（在改变定位之前获取）
+            // 如果封面图高度不可用，使用点击时保存的高度（作为后备）
+            if (!finalHeight || finalHeight === 0) {
+                const savedHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                if (savedHeight > 0) {
+                    finalHeight = savedHeight;
+                    debugLog('fadeInVideo: 使用点击时保存的高度（后备）:', finalHeight);
+                }
+            }
+            
+            // 如果保存的高度也不可用，使用占位符的当前高度（在改变定位之前获取）
             if (!finalHeight || finalHeight === 0) {
                 let placeholderCurrentHeight = placeholder.offsetHeight || placeholder.clientHeight;
                 
@@ -886,40 +1387,6 @@
                 }
             }
             
-            // 如果占位符高度不可用，尝试使用封面图的高度
-            if (!finalHeight || finalHeight === 0) {
-                const coverImg = placeholder.querySelector('.video-cover');
-                if (coverImg) {
-                    const coverCurrentHeight = coverImg.offsetHeight || coverImg.clientHeight;
-                    if (coverCurrentHeight > 0) {
-                        finalHeight = coverCurrentHeight;
-                        debugLog('使用封面图当前高度:', finalHeight);
-                    } else {
-                        // 如果 offsetHeight 不可用，使用 getBoundingClientRect 获取封面图的实际显示尺寸
-                        const coverRect = coverImg.getBoundingClientRect();
-                        const coverDisplayHeight = coverRect.height;
-                        const coverDisplayWidth = coverRect.width;
-                        
-                        if (coverDisplayHeight > 0) {
-                            // 如果 getBoundingClientRect 能获取到高度，直接使用
-                            finalHeight = coverDisplayHeight;
-                            debugLog('使用封面图 getBoundingClientRect 高度:', finalHeight);
-                        } else if (coverDisplayWidth > 0 && coverImg.naturalHeight > 0 && coverImg.naturalWidth > 0) {
-                            // 如果高度为0，使用封面图的实际显示宽度和宽高比计算
-                            const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
-                            finalHeight = coverDisplayWidth * aspectRatio;
-                            debugLog('使用封面图显示宽度计算高度:', finalHeight, '显示宽度:', coverDisplayWidth, '原始尺寸:', coverImg.naturalWidth + 'x' + coverImg.naturalHeight);
-                        } else if (coverImg.naturalHeight > 0 && coverImg.naturalWidth > 0) {
-                            // 最后备选：使用容器宽度和宽高比计算
-                            const containerWidth = container ? (container.offsetWidth || container.clientWidth) : window.innerWidth;
-                            const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
-                            finalHeight = containerWidth * aspectRatio;
-                            debugLog('使用容器宽度计算高度（备选）:', finalHeight, '容器宽度:', containerWidth);
-                        }
-                    }
-                }
-            }
-            
             // 如果仍然没有高度，使用传入的 targetHeight
             if (!finalHeight || finalHeight === 0) {
                 finalHeight = targetHeight || 300;
@@ -928,6 +1395,7 @@
             
             // 先设置容器高度，防止塌陷（必须在改变占位符位置之前）
             if (container && finalHeight > 0) {
+                // 在移动端，container 就是 .media-box，所以需要同时设置
                 container.style.height = finalHeight + 'px';
                 container.style.minHeight = finalHeight + 'px';
                 container.style.maxHeight = finalHeight + 'px'; // 添加最大高度限制，防止缩小
@@ -942,43 +1410,70 @@
                 }
             }
             
-            // 先让占位符改为绝对定位，准备淡出（保持当前高度）
-            placeholder.style.position = 'absolute';
-            placeholder.style.top = '0';
-            placeholder.style.left = '0';
-            placeholder.style.width = '100%';
-            placeholder.style.height = finalHeight + 'px';
-            placeholder.style.minHeight = finalHeight + 'px'; // 添加最小高度限制
-            placeholder.style.maxHeight = finalHeight + 'px'; // 添加最大高度限制，防止缩小
-            placeholder.style.pointerEvents = 'none';
-            // 使用更平滑的缓动函数和更长的过渡时间（0.7s cubic-bezier）
-            placeholder.style.transition = 'opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
-            
-            // 设置视频元素的高度和位置，初始透明度为0（准备淡入，使用相同高度）
-            video.style.position = 'absolute';
-            video.style.top = '0';
-            video.style.left = '0';
-            video.style.width = '100%';
-            video.style.height = finalHeight + 'px';
-            video.style.minHeight = finalHeight + 'px'; // 添加最小高度限制
-            video.style.maxHeight = finalHeight + 'px'; // 添加最大高度限制，防止缩小
-            video.style.display = 'block';
-            video.style.zIndex = '11';
-            video.style.opacity = '0';
-            // 使用更平滑的缓动函数和更长的过渡时间（0.7s cubic-bezier）
-            video.style.transition = 'opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
-            video.classList.add('playing');
-            
-            // 确保视频完全准备好后再开始淡入淡出
-            // 使用 requestAnimationFrame 确保样式已应用，然后触发交叉淡入淡出
+            // 使用 requestAnimationFrame 确保容器高度已被浏览器应用
+            // 然后再改变占位符位置，避免缩小
             requestAnimationFrame(() => {
+                // 再次确认并设置容器高度，确保高度被正确应用
+                if (container && finalHeight > 0) {
+                    container.style.height = finalHeight + 'px';
+                    container.style.minHeight = finalHeight + 'px';
+                    container.style.maxHeight = finalHeight + 'px';
+                    
+                    // 如果容器有 .media-box 父元素，也设置其高度（移动端 container 就是 .media-box）
+                    const mediaBox = container.closest('.media-box');
+                    if (mediaBox && mediaBox !== container) {
+                        mediaBox.style.height = finalHeight + 'px';
+                        mediaBox.style.minHeight = finalHeight + 'px';
+                        mediaBox.style.maxHeight = finalHeight + 'px';
+                    }
+                    
+                    // 强制浏览器应用容器高度样式（通过读取 offsetHeight 触发重排）
+                    void container.offsetHeight;
+                }
+                
+                // 先让占位符改为绝对定位，准备淡出（保持当前高度）
+                // 在改变位置之前，先设置高度，确保高度不会丢失
+                placeholder.style.height = finalHeight + 'px';
+                placeholder.style.minHeight = finalHeight + 'px';
+                placeholder.style.maxHeight = finalHeight + 'px';
+                placeholder.style.position = 'absolute';
+                placeholder.style.top = '0';
+                placeholder.style.left = '0';
+                placeholder.style.width = '100%';
+                placeholder.style.pointerEvents = 'none';
+                // 使用更平滑的缓动函数和更长的过渡时间（0.7s cubic-bezier）
+                placeholder.style.transition = 'opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
+                
+                // 设置视频元素的高度和位置，初始透明度为0（准备淡入，使用相同高度）
+                video.style.position = 'absolute';
+                video.style.top = '0';
+                video.style.left = '0';
+                video.style.width = '100%';
+                video.style.height = finalHeight + 'px';
+                video.style.minHeight = finalHeight + 'px'; // 添加最小高度限制
+                video.style.maxHeight = finalHeight + 'px'; // 添加最大高度限制，防止缩小
+                video.style.display = 'block';
+                video.style.zIndex = '11';
+                video.style.opacity = '0';
+                // 使用更平滑的缓动函数和更长的过渡时间（0.7s cubic-bezier）
+                video.style.transition = 'opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
+                video.classList.add('playing');
+                
+                // 强制浏览器应用所有样式（通过读取 offsetHeight 触发重排）
+                void placeholder.offsetHeight;
+                void video.offsetHeight;
+                
+                // 确保视频完全准备好后再开始淡入淡出
+                // 使用 requestAnimationFrame 确保样式已应用，然后触发交叉淡入淡出
                 requestAnimationFrame(() => {
-                    // 再等待一小段时间确保视频帧已准备好
-                    setTimeout(() => {
-                        // 同时触发占位符淡出和视频淡入
-                        placeholder.style.opacity = '0';
-                        video.style.opacity = '1';
-                    }, 50); // 50ms 延迟确保视频帧准备好
+                    requestAnimationFrame(() => {
+                        // 再等待一小段时间确保视频帧已准备好
+                        setTimeout(() => {
+                            // 同时触发占位符淡出和视频淡入
+                            placeholder.style.opacity = '0';
+                            video.style.opacity = '1';
+                        }, 50); // 50ms 延迟确保视频帧准备好
+                    });
                 });
             });
         }
@@ -2384,6 +2879,10 @@
         
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
+            // 初始化 StarryCanvas
+            initStarryCanvas();
+            
+            // 生成作品列表
             generateWorks();
         });
     </script>

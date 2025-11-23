@@ -218,8 +218,13 @@
         /* 移动端优化：移除固定比例，使用视频原始比例 */
         @media (max-width: 768px) {
             .media-box {
-                min-height: 200px;
-                /* 移除 aspect-ratio，让视频保持原始比例 */
+                /* 完全移除高度限制，让视频内容决定高度 */
+                min-height: 0;
+            }
+            
+            /* 视频容器不限制高度 */
+            .video-container {
+                min-height: 0;
             }
             
             /* 隐藏移动端播放按钮 */
@@ -396,18 +401,18 @@
         
         /* 移动端：图片和视频保持原始比例 */
         @media (max-width: 768px) {
-            .media-box img:not(.video-cover),
-            .media-box video {
-                height: auto; /* 保持原始比例 */
-                width: 100%;
+            /* 视频容器内的视频保持原始比例 */
+            .video-container {
+                position: relative;
+                min-height: 0;
             }
             
-            /* 视频容器内的视频保持原始比例 */
             .video-container video {
                 position: relative;
-                height: auto;
                 width: 100%;
+                height: auto;
                 display: block;
+                object-fit: contain; /* 保持比例，不裁剪 */
             }
             
             /* 图片保持原始比例 */
@@ -417,7 +422,18 @@
                 width: 100%;
             }
             
-            /* 封面图仍然填满容器（占位符内） */
+            /* 封面图占位符 */
+            .video-placeholder {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
             .video-placeholder .video-cover {
                 position: absolute;
                 top: 0;
@@ -427,9 +443,11 @@
                 object-fit: cover;
             }
             
-            /* 移动端视频播放时显示 */
+            /* 当视频播放时，确保视频在上层 */
+            .video-container video[style*="display: block"],
             .video-container video.playing {
-                display: block !important;
+                position: relative;
+                z-index: 2;
             }
         }
 
@@ -791,13 +809,22 @@
         
         // 移动端视频自动播放设置（使用 Intersection Observer）
         function setupMobileVideoAutoplay(videoId, videoSrc, placeholderId) {
+            console.log('设置移动端视频自动播放:', videoId);
             const container = document.querySelector(`[data-video-id="${videoId}"]`);
-            if (!container) return;
+            if (!container) {
+                console.error('找不到容器:', videoId);
+                return;
+            }
             
             const video = document.getElementById(videoId);
             const placeholder = document.getElementById(placeholderId);
             
-            if (!video || !placeholder) return;
+            if (!video || !placeholder) {
+                console.error('找不到视频或占位符:', { videoId, placeholderId });
+                return;
+            }
+            
+            console.log('开始监听视频:', videoId);
             
             // 创建 Intersection Observer
             const observer = new IntersectionObserver((entries) => {
@@ -823,8 +850,8 @@
                     }
                 });
             }, {
-                threshold: 0.5, // 当50%的视频区域进入视口时触发
-                rootMargin: '0px'
+                threshold: 0.2, // 当20%的视频区域进入视口时触发（更容易触发）
+                rootMargin: '100px' // 提前100px开始加载，提升体验
             });
             
             observer.observe(container);
@@ -832,8 +859,15 @@
         
         // 移动端视频自动播放函数
         function autoPlayMobileVideo(video, videoSrc, placeholder) {
+            console.log('尝试自动播放视频:', video.id, '当前状态:', {
+                paused: video.paused,
+                readyState: video.readyState,
+                src: video.src
+            });
+            
             // 如果视频正在播放，直接返回
             if (!video.paused && video.readyState >= 2) {
+                console.log('视频已在播放，跳过');
                 return;
             }
             
@@ -846,11 +880,16 @@
                 // 等待视频可以播放
                 const onCanPlay = function() {
                     video.removeEventListener('canplay', onCanPlay);
+                    
+                    // 先显示视频，确保可见
                     video.style.display = 'block';
+                    video.style.position = 'relative';
+                    video.style.zIndex = '2';
                     
                     // 隐藏封面图
                     if (placeholder) {
                         placeholder.style.display = 'none';
+                        placeholder.style.zIndex = '1';
                     }
                     
                     // 开始播放
@@ -873,9 +912,14 @@
             } else {
                 // 视频已加载，直接播放
                 video.style.display = 'block';
+                video.style.position = 'relative';
+                video.style.zIndex = '2';
+                
                 if (placeholder) {
                     placeholder.style.display = 'none';
+                    placeholder.style.zIndex = '1';
                 }
+                
                 const playPromise = video.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => {

@@ -416,18 +416,20 @@
             
             /* 封面图占位符 - 相对定位，让容器根据封面图高度自动调整 */
             .video-placeholder {
-                position: relative;
+                position: relative !important;
                 width: 100%;
-                display: block;
+                display: block !important;
                 background: #222; /* 深色背景作为占位，防止封面图加载前显示灰色 */
+                min-height: 200px; /* 确保有最小高度 */
             }
             
             .video-placeholder .video-cover {
-                position: relative;
-                width: 100%;
-                height: auto;
-                display: block;
+                position: relative !important; /* 强制覆盖全局的绝对定位 */
+                width: 100% !important;
+                height: auto !important;
+                display: block !important;
                 object-fit: cover;
+                max-width: 100%;
             }
             
             /* 视频元素 - 保持原始比例 */

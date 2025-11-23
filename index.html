@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MY WORK</title>
+    <style>
+        /* --- 极简工业风格设置 --- */
+        :root {
+            --bg-color: #F0F0F0;
+            --text-color: #111;
+            --card-bg: #FFF;
+            --font-main: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            margin: 0;
+            padding: 40px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            overflow-x: hidden;
+        }
+
+        /* 顶部介绍区 */
+ /* ========================================= */
+        /* ✅ 新的：头部背景视频样式 (替换开始)       */
+        /* ========================================= */
+        
+        header {
+            position: relative; /* 关键定位 */
+            height: 75vh;       /* 高度占屏幕 75% */
+            min-height: 500px;
+            margin-bottom: 50px;
+            overflow: hidden;   /* 裁掉多余视频 */
+            display: flex;
+            align-items: flex-end; /* 内容沉底 */
+            color: white;       /* 强制文字变白 */
+        }
+
+        /* 1. 视频层 (最底层) */
+        .bg-video {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%); /* 居中 */
+            min-width: 100%; 
+            min-height: 100%;
+            width: auto; height: auto;
+            z-index: 0;
+            object-fit: cover; /* 铺满不变形 */
+        }
+
+        /* 2. 遮罩层 (中间层) - 让文字更清晰 */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4); /* 0.4 是黑色透明度，可调 */
+            z-index: 1;
+        }
+
+        /* 3. 内容层 (最上层) */
+        .header-content {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            padding: 40px; /* 文字离边缘的距离 */
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            flex-wrap: wrap; /* 手机上允许换行 */
+            gap: 20px;
+        }
+
+        /* 头部大标题 */
+        h1 {
+            font-size: 6rem; /* 字体改大一点更霸气 */
+            line-height: 0.85;
+            margin: 0;
+            letter-spacing: -3px;
+            text-transform: uppercase;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.5); /* 加点阴影 */
+        }
+
+        /* 头部介绍文字 */
+        .intro {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            max-width: 400px;
+            line-height: 1.5;
+            color: #eee; /* 浅灰白 */
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        /* 手机适配调整 */
+        @media (max-width: 768px) {
+            header { height: 60vh; }
+            h1 { font-size: 3.5rem; }
+            .header-content { flex-direction: column; align-items: flex-start; }
+        }
+
+        /* ========================================= */
+        /* ✅ 新的样式 (替换结束)                    */
+        /* ========================================= */
+        .intro {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+
+        /* 瀑布流布局 */
+        .gallery {
+            column-count: 3; /* 电脑显示3列 */
+            column-gap: 20px;
+        }
+
+        /* 单个作品卡片 */
+        .item {
+            break-inside: avoid;
+            background: var(--card-bg);
+            margin-bottom: 20px;
+            padding: 10px;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.1); /* 硬阴影更有设计感 */
+            transition: transform 0.2s ease;
+            cursor: pointer;
+        }
+
+        .item:hover {
+            transform: translateY(-3px);
+            box-shadow: 6px 6px 0 rgba(0,0,0,0.2);
+        }
+
+        /* 图片/视频容器 */
+        .media-box {
+            position: relative;
+            width: 100%;
+            background: #ddd; /* 加载前的占位色 */
+            overflow: hidden;
+        }
+
+        /* 确保图片视频铺满 */
+        img, video {
+            width: 100%;
+            display: block;
+            object-fit: cover;
+            filter: grayscale(100%); /* 默认黑白 */
+            transition: filter 0.3s;
+        }
+
+        /* 鼠标悬停变彩色 */
+        .item:hover img, .item:hover video {
+            filter: grayscale(0%);
+        }
+
+        /* 视频标识小标签 */
+        .badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #FF3333;
+            color: white;
+            font-size: 10px;
+            padding: 3px 6px;
+            font-weight: bold;
+            font-family: var(--font-mono);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* 文字信息 */
+        .meta {
+            margin-top: 12px;
+        }
+        .work-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+        }
+        .work-desc {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* 手机适配 */
+        @media (max-width: 768px) {
+            .gallery { column-count: 1; } /* 手机变1列 */
+            h1 { font-size: 3rem; }
+            body { padding: 20px; }
+        }
+        
+        
+    </style>
+</head>
+<body>
+
+    <!-- ========================================= -->
+    <!-- ✅ 新的：头部结构 (替换开始)               -->
+    <!-- ========================================= -->
+    <header>
+        <!-- 1. 背景视频 (必须静音 muted 才能自动播放) -->
+        <video class="bg-video" autoplay muted loop playsinline>
+            <!-- ⚠️ 确保你的 assets 文件夹里有 header-bg.mp4 -->
+            <source src="./assets/header-bg.mp4" type="video/mp4">
+        </video>
+
+        <!-- 2. 黑色遮罩 -->
+        <div class="overlay"></div>
+
+        <!-- 3. 文字内容 -->
+        <div class="header-content">
+            <!-- 👇 这里改大标题 -->
+            <h1>
+                MG-mango<br>Portfolio.
+            </h1>
+            
+            <!-- 👇 这里改右下角的介绍 -->
+            <div class="intro">
+                慢工艺术.<br>
+                芒果小子.<br>
+                数字艺术创作者.<br>
+                湖北武汉.<br>
+                VX：zxy201x<br>
+            </div>
+        </div>
+    </header>
+    <!-- ========================================= -->
+    <!-- ✅ 新的结构 (替换结束)                    -->
+    <!-- ========================================= -->
+
+    <!-- 作品展示区 -->
+    <div class="gallery" id="app"></div>
+
+    <script>
+        // ========================================================
+        // 🔧 【后台管理区】 修改这里的内容来更新网站
+        // ⚠️ 注意：
+        // 1. 文件名必须和 assets 文件夹里的名字一模一样
+        // 2. 视频推荐 mp4，图片推荐 jpg/png
+        // ========================================================
+        
+        const works = [
+            {
+                // 第一个作品
+                type: 'video',               // 类型: 'video' 或 'image'
+                file: 'demo_video.mp4',      // assets 文件夹里的文件名
+                title: 'UE5.6/MetaHuman 全职猎人尼飞彼多',          // 标题
+                desc: 'Blender / ue5.6 ', // 描述
+                link: 'https://www.bilibili.com/video/BV1zhCTB4Ebx/?vd_source=5a8a1e77dd02473c9b86e296eba3ee95' // 点击跳转链接
+            },
+            {
+                type: 'video',
+                file: 'my_animation.mp4',  
+                title: '假如我家的猫COS全职猎人里的角色之尼飞彼多',
+                desc: 'Blender',
+                link: 'https://www.bilibili.com/video/BV1Kb1jBqEdM/?vd_source=5a8a1e77dd02473c9b86e296eba3ee95'
+            },
+            // --- 复制下面这一块来添加新作品 ---
+            {
+                type: 'video',
+                file: 'my_animation2.mp4',  
+                title: '九天揽月|自制动画',
+                desc: 'Blender',
+                link: 'https://www.bilibili.com/video/BV1Q7xVzBEyh/?vd_source=5a8a1e77dd02473c9b86e296eba3ee95'
+            },
+            // ----------------------------------
+            {
+                type: 'video',
+                file: '噬金虫.mp4',  
+                title: '噬金虫|位列人界奇虫榜第十二位，终成道祖',
+                desc: 'Blender',
+                link: 'https://www.bilibili.com/video/BV1Q7xVzBEyh/?vd_source=5a8a1e77dd02473c9b86e296eba3ee95'
+            },
+        ];
+
+        // ========================================================
+        // 👇 下面的代码负责生成网页，不需要修改 👇
+        // ========================================================
+        
+        const gallery = document.getElementById('app');
+        const assetPath = './assets/'; // 自动指向 assets 文件夹
+
+        works.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'item';
+            
+            let mediaHTML = '';
+
+            if (item.type === 'video') {
+                // 视频：静音、循环、鼠标悬停播放
+                // preload="metadata" 确保加载第一帧画面
+                mediaHTML = `
+                    <div class="media-box">
+                        <span class="badge">VIDEO</span>
+                        <video 
+                            src="${assetPath + item.file}" 
+                            muted 
+                            loop 
+                            playsinline
+                            preload="metadata"
+                            onmouseover="this.play()" 
+                            onmouseout="this.pause()"
+                        ></video>
+                    </div>
+                `;
+            } else {
+                // 图片
+                mediaHTML = `
+                    <div class="media-box">
+                        <img src="${assetPath + item.file}" loading="lazy" alt="${item.title}">
+                    </div>
+                `;
+            }
+
+            card.innerHTML = `
+                <a href="${item.link}" target="_blank" style="text-decoration:none; color:inherit;">
+                    ${mediaHTML}
+                    <div class="meta">
+                        <div class="work-title">${item.title}</div>
+                        <div class="work-desc">${item.desc}</div>
+                    </div>
+                </a>
+            `;
+
+            gallery.appendChild(card);
+        });
+    </script>
+
+</body>
+</html>

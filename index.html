@@ -138,7 +138,7 @@
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.4); /* 0.4 是黑色透明度，可调 */
+            background: rgba(0, 0, 0, 0); /* 降低为 0，完全透明，不显示遮罩 */
             z-index: 1;
             pointer-events: none; /* 不阻挡鼠标事件，让 canvas 可以接收交互 */
         }
@@ -735,7 +735,7 @@
         
         // 配置常量 - 性能优化版本
         const STARRY_CONFIG = {
-            particleBaseSize: 1.2,  // 稍微减小粒子大小
+            particleBaseSize: 1.5,  // 从 1.2 改为 1.5，让粒子更大更明显
             assembleSpeed: 0.06,
             friction: 0.92,
             mouseRadius: 120,
@@ -764,7 +764,12 @@
                 this.vx = (Math.random() - 0.5) * 1;
                 this.vy = (Math.random() - 0.5) * 1;
                 
-                this.size = Math.random() * STARRY_CONFIG.particleBaseSize + 0.5;
+                // 移动端使用更小的粒子大小
+                const isMobile = window.innerWidth <= 768;
+                const baseSize = isMobile ? 0.8 : STARRY_CONFIG.particleBaseSize;  // 移动端使用 0.8，桌面端使用 1.5
+                this.size = Math.random() * baseSize + (isMobile ? 0.3 : 0.5);  // 移动端最小 0.3，桌面端最小 0.5
+                this.isMobile = isMobile;  // 保存移动端标志，供 draw 方法使用
+                
                 this.color = STARRY_CONFIG.colors[Math.floor(Math.random() * STARRY_CONFIG.colors.length)];
                 
                 this.angle = Math.random() * Math.PI * 2;
@@ -810,28 +815,31 @@
             }
             
             draw(ctx) {
-                const alpha = 0.5 + 0.5 * Math.abs(Math.sin(Date.now() * 0.001 * this.blinkSpeed + this.blinkOffset));  // 从 0.3+0.7 改为 0.5+0.5，提高最低亮度
+                const alpha = 0.5 + 0.5 * Math.abs(Math.sin(Date.now() * 0.001 * this.blinkSpeed + this.blinkOffset));  // 从 0.3+0.7 改为 0.5+0.5，提高最低亮度到 0.5，让粒子更亮
                 
                 ctx.save();
                 ctx.globalAlpha = alpha;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
-                ctx.shadowBlur = this.size * 2;
+                
+                // 移动端使用更小的阴影模糊，让粒子更精细
+                ctx.shadowBlur = this.isMobile ? this.size * 1.5 : this.size * 2;  // 移动端减少阴影模糊
+                
                 ctx.shadowColor = this.color;
                 ctx.fill();
                 ctx.restore();
             }
         }
         
-        // BackgroundStar 类（背景星星）- 优化版本
+        // BackgroundStar 类（背景星星）- 恢复闪烁效果
         class BackgroundStar {
             constructor(w, h) {
                 this.x = Math.random() * w;
                 this.y = Math.random() * h;
-                this.size = Math.random() * 1.2 + 0.3;  // 稍微减小
-                this.speed = Math.random() * 0.03 + 0.01;  // 稍微减慢
-                this.alpha = Math.random() * 0.2 + 0.1;  // 缓存 alpha 值，避免每帧计算
+                this.size = Math.random() * 1.5;  // 恢复原始大小
+                this.speed = Math.random() * 0.05 + 0.02;  // 恢复原始速度
+                // 移除缓存的 alpha，让每帧都重新计算，产生闪烁效果
             }
             
             update(w, h) {
@@ -841,7 +849,7 @@
             
             draw(ctx) {
                 ctx.save();
-                ctx.fillStyle = `rgba(255, 255, 255, ${this.alpha})`;  // 使用缓存的 alpha
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.3 + 0.2})`;  // 从 0.1-0.4 改为 0.2-0.5，提高亮度范围，让背景星星更亮
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fill();
@@ -872,7 +880,7 @@
             let animationId = null;
             let text = 'MG-MANGO';
             let showConstellations = true;
-            let density = 8;  // 从 15 改为 8（更小的值 = 更多的粒子，平衡性能和效果）
+            let density = 12;  // 从 8 改为 12（更大的值 = 更少的粒子，提升性能）
             
             // 更新粒子（从文字生成）
             function updateParticles() {
@@ -917,13 +925,17 @@
                 tempCtx.textBaseline = 'middle';
                 tempCtx.fillText(text, width / 2, textY);
                 
-                // 采样逻辑 - 优化版本（产生更少的粒子）
+                // 采样逻辑 - 进一步优化性能（产生更少的粒子）
                 const imageData = tempCtx.getImageData(0, 0, width, height);
                 const data = imageData.data;
                 const newParticles = [];
                 
-                const qualityFactor = density / 6;  // density = 8 时，qualityFactor = 1.33
-                const step = Math.max(2, Math.floor((fontSize / 30) * qualityFactor));  // 从 25 改为 30，从 3 改为 2，产生更多粒子
+                // 检测移动端，使用更少的粒子
+                const isMobile = window.innerWidth <= 768;
+                const qualityFactor = density / 6;  // density = 12 时，qualityFactor = 2.0
+                // 移动端使用更大的步长，产生更少的粒子
+                const baseStep = isMobile ? (fontSize / 50) : (fontSize / 40);  // 移动端除数更大
+                const step = Math.max(isMobile ? 4 : 3, Math.floor(baseStep * qualityFactor));  // 移动端最小步长更大
                 
                 for (let y = 0; y < height; y += step) {
                     for (let x = 0; x < width; x += step) {
@@ -934,22 +946,33 @@
                     }
                 }
                 
-                particles = newParticles;
+                // 限制最大粒子数量（防止过多粒子影响性能）
+                if (newParticles.length > 1000) {
+                    // 随机采样，保留 1000 个粒子
+                    const sampleStep = Math.ceil(newParticles.length / 1000);
+                    const sampledParticles = [];
+                    for (let i = 0; i < newParticles.length; i += sampleStep) {
+                        sampledParticles.push(newParticles[i]);
+                    }
+                    particles = sampledParticles.slice(0, 1000);
+                } else {
+                    particles = newParticles;
+                }
             }
             
-            // 动画循环 - 调亮版本
+            // 动画循环 - 根据参考项目修改
             function animate() {
-                // 清除画布（降低清除强度，让画面更亮）
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';  // 从 0.5 改为 0.3，降低清除强度
+                // 清除画布（完全不透明清除，无轨迹效果）
+                ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';  // 改为 1.0，完全不透明，完全清除每帧
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
-                // 渐晕效果（降低暗度）
+                // 渐晕效果（参考项目使用 0.5）
                 const gradient = ctx.createRadialGradient(
                     canvas.width / 2, canvas.height / 2, canvas.width / 4,
                     canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height)
                 );
                 gradient.addColorStop(0, 'rgba(0,0,0,0)');
-                gradient.addColorStop(1, 'rgba(0,0,0,0.3)');  // 从 0.5 改为 0.3，降低暗度
+                gradient.addColorStop(1, 'rgba(0,0,0,0.5)');  // 改回 0.5，与参考项目一致
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
@@ -978,7 +1001,7 @@
                     const maxDistSq = maxDist * maxDist;
                     
                     // 优化：只检查部分粒子，减少计算量
-                    const checkInterval = Math.max(1, Math.floor(particleCount / 200));  // 每 N 个粒子检查一次
+                    const checkInterval = Math.max(1, Math.floor(particleCount / 300));  // 从 200 改为 300，减少检查频率
                     
                     for (let i = 0; i < particleCount; i += checkInterval) {
                         const p1 = particles[i];

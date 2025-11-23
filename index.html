@@ -207,7 +207,7 @@
             background: #ddd; /* 加载前的占位色 */
             overflow: hidden;
         }
-        
+
         /* 桌面端：保持自适应高度，但设置最小高度防止塌陷 */
         @media (min-width: 769px) {
             .media-box {
@@ -456,7 +456,7 @@
                 z-index: 11;
                 filter: grayscale(0%) !important;
                 opacity: 0;
-                transition: opacity 0.5s ease-in-out;
+                transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
             }
             
             /* 视频播放时显示视频 */
@@ -739,14 +739,14 @@
                         }).catch(err => {
                             debugLog('播放失败:', err);
                             // 如果自动播放失败，显示播放按钮
-                            if (placeholder) {
-                                placeholder.style.display = 'flex';
-                                const playBtn = placeholder.querySelector('.play-button-large');
-                                if (playBtn) {
-                                    playBtn.style.display = 'flex';
-                                }
+                        if (placeholder) {
+                            placeholder.style.display = 'flex';
+                            const playBtn = placeholder.querySelector('.play-button-large');
+                            if (playBtn) {
+                                playBtn.style.display = 'flex';
                             }
-                        });
+                        }
+                    });
                     }
                 };
                 
@@ -858,40 +858,127 @@
         // 🔧 工具函数：淡入淡出过渡
         // ========================================================
         function fadeInVideo(video, placeholder, container, targetHeight) {
-            // 先设置容器高度，防止塌陷（必须在改变占位符位置之前）
-            if (container && targetHeight > 0) {
-                container.style.height = targetHeight + 'px';
-                container.style.minHeight = targetHeight + 'px';
-                container.style.position = 'relative'; // 确保容器是定位上下文
+            // 强制优先使用占位符的当前实际显示高度（占位符已经包含了封面图）
+            // 这是最可靠的方法，因为占位符的高度就是封面图的实际显示高度
+            let finalHeight = 0;
+            
+            // 优先使用点击时保存的高度（最可靠，在点击时立即获取）
+            const savedHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+            if (savedHeight > 0) {
+                finalHeight = savedHeight;
+                debugLog('fadeInVideo: 使用点击时保存的高度:', finalHeight);
             }
             
-            // 先让占位符改为绝对定位，准备淡出
+            // 如果保存的高度不可用，使用占位符的当前高度（在改变定位之前获取）
+            if (!finalHeight || finalHeight === 0) {
+                let placeholderCurrentHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                
+                // 如果 offsetHeight 为0，使用 getBoundingClientRect 获取实际渲染高度
+                if (!placeholderCurrentHeight || placeholderCurrentHeight === 0) {
+                    const rect = placeholder.getBoundingClientRect();
+                    placeholderCurrentHeight = rect.height;
+                    debugLog('fadeInVideo: 使用 getBoundingClientRect 获取占位符高度:', placeholderCurrentHeight);
+                }
+                
+                if (placeholderCurrentHeight > 0) {
+                    finalHeight = placeholderCurrentHeight;
+                    debugLog('fadeInVideo: 使用占位符当前高度:', finalHeight, '计算高度:', targetHeight);
+                }
+            }
+            
+            // 如果占位符高度不可用，尝试使用封面图的高度
+            if (!finalHeight || finalHeight === 0) {
+                const coverImg = placeholder.querySelector('.video-cover');
+                if (coverImg) {
+                    const coverCurrentHeight = coverImg.offsetHeight || coverImg.clientHeight;
+                    if (coverCurrentHeight > 0) {
+                        finalHeight = coverCurrentHeight;
+                        debugLog('使用封面图当前高度:', finalHeight);
+                    } else {
+                        // 如果 offsetHeight 不可用，使用 getBoundingClientRect 获取封面图的实际显示尺寸
+                        const coverRect = coverImg.getBoundingClientRect();
+                        const coverDisplayHeight = coverRect.height;
+                        const coverDisplayWidth = coverRect.width;
+                        
+                        if (coverDisplayHeight > 0) {
+                            // 如果 getBoundingClientRect 能获取到高度，直接使用
+                            finalHeight = coverDisplayHeight;
+                            debugLog('使用封面图 getBoundingClientRect 高度:', finalHeight);
+                        } else if (coverDisplayWidth > 0 && coverImg.naturalHeight > 0 && coverImg.naturalWidth > 0) {
+                            // 如果高度为0，使用封面图的实际显示宽度和宽高比计算
+                            const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
+                            finalHeight = coverDisplayWidth * aspectRatio;
+                            debugLog('使用封面图显示宽度计算高度:', finalHeight, '显示宽度:', coverDisplayWidth, '原始尺寸:', coverImg.naturalWidth + 'x' + coverImg.naturalHeight);
+                        } else if (coverImg.naturalHeight > 0 && coverImg.naturalWidth > 0) {
+                            // 最后备选：使用容器宽度和宽高比计算
+                            const containerWidth = container ? (container.offsetWidth || container.clientWidth) : window.innerWidth;
+                            const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
+                            finalHeight = containerWidth * aspectRatio;
+                            debugLog('使用容器宽度计算高度（备选）:', finalHeight, '容器宽度:', containerWidth);
+                        }
+                    }
+                }
+            }
+            
+            // 如果仍然没有高度，使用传入的 targetHeight
+            if (!finalHeight || finalHeight === 0) {
+                finalHeight = targetHeight || 300;
+                debugLog('使用计算高度:', finalHeight);
+            }
+            
+            // 先设置容器高度，防止塌陷（必须在改变占位符位置之前）
+            if (container && finalHeight > 0) {
+                container.style.height = finalHeight + 'px';
+                container.style.minHeight = finalHeight + 'px';
+                container.style.maxHeight = finalHeight + 'px'; // 添加最大高度限制，防止缩小
+                container.style.position = 'relative'; // 确保容器是定位上下文
+                
+                // 如果容器有 .media-box 父元素，也设置其高度（移动端 container 就是 .media-box）
+                const mediaBox = container.closest('.media-box');
+                if (mediaBox && mediaBox !== container) {
+                    mediaBox.style.height = finalHeight + 'px';
+                    mediaBox.style.minHeight = finalHeight + 'px';
+                    mediaBox.style.maxHeight = finalHeight + 'px';
+                }
+            }
+            
+            // 先让占位符改为绝对定位，准备淡出（保持当前高度）
             placeholder.style.position = 'absolute';
             placeholder.style.top = '0';
             placeholder.style.left = '0';
             placeholder.style.width = '100%';
-            placeholder.style.height = targetHeight + 'px';
+            placeholder.style.height = finalHeight + 'px';
+            placeholder.style.minHeight = finalHeight + 'px'; // 添加最小高度限制
+            placeholder.style.maxHeight = finalHeight + 'px'; // 添加最大高度限制，防止缩小
             placeholder.style.pointerEvents = 'none';
-            placeholder.style.transition = 'opacity 0.5s ease-in-out';
+            // 使用更平滑的缓动函数和更长的过渡时间（0.7s cubic-bezier）
+            placeholder.style.transition = 'opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
             
-            // 设置视频元素的高度和位置，初始透明度为0（准备淡入）
+            // 设置视频元素的高度和位置，初始透明度为0（准备淡入，使用相同高度）
             video.style.position = 'absolute';
             video.style.top = '0';
             video.style.left = '0';
             video.style.width = '100%';
-            video.style.height = targetHeight + 'px';
+            video.style.height = finalHeight + 'px';
+            video.style.minHeight = finalHeight + 'px'; // 添加最小高度限制
+            video.style.maxHeight = finalHeight + 'px'; // 添加最大高度限制，防止缩小
             video.style.display = 'block';
             video.style.zIndex = '11';
             video.style.opacity = '0';
-            video.style.transition = 'opacity 0.5s ease-in-out';
+            // 使用更平滑的缓动函数和更长的过渡时间（0.7s cubic-bezier）
+            video.style.transition = 'opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
             video.classList.add('playing');
             
+            // 确保视频完全准备好后再开始淡入淡出
             // 使用 requestAnimationFrame 确保样式已应用，然后触发交叉淡入淡出
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                    // 同时触发占位符淡出和视频淡入
-                    placeholder.style.opacity = '0';
-                    video.style.opacity = '1';
+                    // 再等待一小段时间确保视频帧已准备好
+                    setTimeout(() => {
+                        // 同时触发占位符淡出和视频淡入
+                        placeholder.style.opacity = '0';
+                        video.style.opacity = '1';
+                    }, 50); // 50ms 延迟确保视频帧准备好
                 });
             });
         }
@@ -907,6 +994,8 @@
             video.style.left = '';
             video.style.width = '';
             video.style.height = '';
+            video.style.minHeight = '';
+            video.style.maxHeight = '';
             video.style.opacity = '';
             video.style.transition = '';
             video.classList.remove('playing');
@@ -915,17 +1004,33 @@
             if (container) {
                 container.style.height = '';
                 container.style.minHeight = '';
+                container.style.maxHeight = '';
                 container.style.position = '';
+                
+                // 恢复 .media-box 的高度（如果存在）
+                const mediaBox = container.closest('.media-box');
+                if (mediaBox && mediaBox !== container) {
+                    mediaBox.style.height = '';
+                    mediaBox.style.minHeight = '';
+                    mediaBox.style.maxHeight = '';
+                }
             }
             
             // 恢复占位符样式
             placeholder.style.position = 'relative';
             placeholder.style.width = '100%';
             placeholder.style.height = 'auto';
+            placeholder.style.minHeight = '';
+            placeholder.style.maxHeight = '';
             placeholder.style.opacity = '1';
             placeholder.style.pointerEvents = 'auto';
             placeholder.style.display = 'block';
             placeholder.style.transition = '';
+            
+            // 清除保存的高度数据
+            if (placeholder.dataset.savedHeight) {
+                delete placeholder.dataset.savedHeight;
+            }
         }
         
         // ========================================================
@@ -953,6 +1058,38 @@
             
             // 添加点击标记，让封面图变为彩色
             placeholder.classList.add('clicked');
+            
+            // 立即保存占位符和封面图的当前高度（在改变任何样式之前）
+            // 使用 data 属性保存，确保后续可以获取
+            const placeholderHeight = placeholder.offsetHeight || placeholder.clientHeight;
+            const placeholderRect = placeholder.getBoundingClientRect();
+            const savedHeight = placeholderRect.height > 0 ? placeholderRect.height : placeholderHeight;
+            
+            // coverImg 已在上面声明，直接使用
+            let savedCoverHeight = 0;
+            if (coverImg) {
+                savedCoverHeight = coverImg.offsetHeight || coverImg.clientHeight;
+                if (!savedCoverHeight || savedCoverHeight === 0) {
+                    const coverRect = coverImg.getBoundingClientRect();
+                    savedCoverHeight = coverRect.height;
+                }
+                // 如果仍然为0，使用 naturalHeight（如果图片已加载）
+                if (!savedCoverHeight && coverImg.complete && coverImg.naturalHeight > 0) {
+                    const coverRect = coverImg.getBoundingClientRect();
+                    const coverWidth = coverRect.width || coverImg.offsetWidth || (container ? container.offsetWidth : 0);
+                    if (coverWidth > 0 && coverImg.naturalWidth > 0) {
+                        const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
+                        savedCoverHeight = coverWidth * aspectRatio;
+                    }
+                }
+            }
+            
+            // 保存到占位符的 data 属性中
+            const finalSavedHeight = savedCoverHeight > 0 ? savedCoverHeight : (savedHeight > 0 ? savedHeight : 0);
+            if (finalSavedHeight > 0) {
+                placeholder.dataset.savedHeight = finalSavedHeight.toString();
+                debugLog('点击时保存的高度:', finalSavedHeight, '占位符高度:', savedHeight, '封面图高度:', savedCoverHeight);
+            }
             
             // 不显示加载提示，封面图保持可见直到视频加载完成
             // 确保封面图可见且可点击状态
@@ -985,19 +1122,157 @@
                 
                 video.addEventListener('error', onError, { once: true });
                 
-                // 等待视频可以播放
-                const onCanPlay = function() {
-                    debugLog('视频可以播放:', video.id);
-                    video.removeEventListener('canplay', onCanPlay);
+                // 等待视频完全加载好（canplaythrough 确保可以流畅播放到结尾）
+                const onCanPlayThrough = function() {
+                    debugLog('视频完全加载好:', video.id, 'readyState:', video.readyState);
+                    video.removeEventListener('canplaythrough', onCanPlayThrough);
                     video.removeEventListener('error', onError);
                     
-                    // 使用工具函数计算高度
+                    // 确保视频的 readyState 足够高（HAVE_ENOUGH_DATA = 4）
+                    if (video.readyState >= 4) {
+                        // 优先使用点击时保存的高度（最可靠）
+                        let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                        
+                        if (placeholderActualHeight > 0) {
+                            debugLog('onCanPlayThrough: 使用点击时保存的高度:', placeholderActualHeight);
+                        } else {
+                            // 如果保存的高度不可用，获取占位符的实际显示高度（在改变任何样式之前）
+                            placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                            
+                            // 如果 offsetHeight 为0，使用 getBoundingClientRect 获取实际渲染高度
+                            if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                const rect = placeholder.getBoundingClientRect();
+                                placeholderActualHeight = rect.height;
+                                debugLog('使用 getBoundingClientRect 获取占位符高度:', placeholderActualHeight);
+                            }
+                            
+                            // 如果仍然没有高度，使用封面图的高度
+                            if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                if (coverImg) {
+                                    placeholderActualHeight = coverImg.offsetHeight || coverImg.clientHeight;
+                                    if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                        // 使用 getBoundingClientRect 获取封面图的实际显示尺寸
+                                        const coverRect = coverImg.getBoundingClientRect();
+                                        const coverDisplayHeight = coverRect.height;
+                                        const coverDisplayWidth = coverRect.width;
+                                        
+                                        if (coverDisplayHeight > 0) {
+                                            // 如果 getBoundingClientRect 能获取到高度，直接使用
+                                            placeholderActualHeight = coverDisplayHeight;
+                                            debugLog('使用封面图 getBoundingClientRect 高度:', placeholderActualHeight);
+                                        } else if (coverDisplayWidth > 0 && coverImg.naturalHeight > 0 && coverImg.naturalWidth > 0) {
+                                            // 如果高度为0，使用封面图的实际显示宽度和宽高比计算
+                                            const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
+                                            placeholderActualHeight = coverDisplayWidth * aspectRatio;
+                                            debugLog('使用封面图显示宽度计算高度:', placeholderActualHeight, '显示宽度:', coverDisplayWidth);
+                                        }
+                                    }
+                                    debugLog('使用封面图高度:', placeholderActualHeight);
+                                }
+                            }
+                        }
+                        
+                        // 使用工具函数计算高度（作为后备）
+                        const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                        
+                        // 优先使用占位符的实际高度，如果没有则使用计算高度
+                        const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                        debugLog('最终使用高度:', finalTargetHeight, '占位符高度:', placeholderActualHeight, '计算高度:', targetHeight);
+                        
+                        // 使用工具函数执行淡入淡出过渡
+                        fadeInVideo(video, placeholder, container, finalTargetHeight);
+                        
+                        // 开始播放
+                        const playPromise = video.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(() => {
+                                debugLog('移动端视频播放成功:', video.id);
+                            }).catch(err => {
+                                debugLog('播放失败:', err, video.id);
+                                // 使用工具函数恢复状态
+                                resetVideoState(video, placeholder, container);
+                                // 播放失败时，封面图会恢复显示，用户可再次点击重试
+                            });
+                        }
+                    } else {
+                        // 如果 readyState 还不够，等待一下再试
+                        debugLog('视频 readyState 不够，等待中...', video.readyState);
+                        setTimeout(() => {
+                            if (video.readyState >= 4) {
+                                // 优先使用点击时保存的高度
+                                let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                                if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                    placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                                    if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                        const rect = placeholder.getBoundingClientRect();
+                                        placeholderActualHeight = rect.height;
+                                    }
+                                }
+                                const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                                const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                                fadeInVideo(video, placeholder, container, finalTargetHeight);
+                video.play().catch(err => {
+                                    debugLog('播放失败:', err, video.id);
+                                    resetVideoState(video, placeholder, container);
+                                });
+                            }
+                        }, 100);
+                    }
+                };
+                
+                // 优先使用 canplaythrough，如果浏览器不支持则降级到 canplay
+                if ('canplaythrough' in video) {
+                    video.addEventListener('canplaythrough', onCanPlayThrough, { once: true });
+                } else {
+                    // 降级方案：使用 canplay，但等待更长时间确保视频加载更多数据
+                    const onCanPlay = function() {
+                        debugLog('视频可以播放（降级方案）:', video.id);
+                        video.removeEventListener('canplay', onCanPlay);
+                        video.removeEventListener('error', onError);
+                        // 等待额外时间确保视频加载更多数据
+                        setTimeout(() => {
+                            if (video.readyState >= 3) {
+                                // 优先使用点击时保存的高度
+                                let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                                if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                    placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                                    if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                        const rect = placeholder.getBoundingClientRect();
+                                        placeholderActualHeight = rect.height;
+                                    }
+                                }
+                                const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                                const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                                fadeInVideo(video, placeholder, container, finalTargetHeight);
+                                video.play().catch(err => {
+                                    debugLog('播放失败:', err, video.id);
+                                    resetVideoState(video, placeholder, container);
+                                });
+                            }
+                        }, 300);
+                    };
+                    video.addEventListener('canplay', onCanPlay, { once: true });
+                }
+            } else {
+                // 视频已加载，确保视频完全准备好后再播放
+                debugLog('视频已加载，检查准备状态:', video.id, 'readyState:', video.readyState);
+                
+                // 确保视频的 readyState 足够高（HAVE_ENOUGH_DATA = 4）
+                if (video.readyState >= 4) {
+                    // 优先使用点击时保存的高度
+                    let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                    if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                        placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                        if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                            const rect = placeholder.getBoundingClientRect();
+                            placeholderActualHeight = rect.height;
+                        }
+                    }
+                    // 视频已完全准备好，直接执行淡入淡出
                     const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                    const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                    fadeInVideo(video, placeholder, container, finalTargetHeight);
                     
-                    // 使用工具函数执行淡入淡出过渡
-                    fadeInVideo(video, placeholder, container, targetHeight);
-                    
-                    // 开始播放
                     const playPromise = video.play();
                     if (playPromise !== undefined) {
                         playPromise.then(() => {
@@ -1009,29 +1284,56 @@
                             // 播放失败时，封面图会恢复显示，用户可再次点击重试
                         });
                     }
-                };
-                
-                video.addEventListener('canplay', onCanPlay, { once: true });
-            } else {
-                // 视频已加载，直接播放
-                debugLog('视频已加载，直接播放:', video.id);
-                
-                // 使用工具函数计算高度
-                const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
-                
-                // 使用工具函数执行淡入淡出过渡
-                fadeInVideo(video, placeholder, container, targetHeight);
-                
-                const playPromise = video.play();
-                if (playPromise !== undefined) {
-                    playPromise.then(() => {
-                        debugLog('移动端视频播放成功:', video.id);
-                    }).catch(err => {
-                        debugLog('播放失败:', err, video.id);
-                        // 使用工具函数恢复状态
-                        resetVideoState(video, placeholder, container);
-                        // 播放失败时，封面图会恢复显示，用户可再次点击重试
-                    });
+                } else {
+                    // 视频还未完全准备好，等待 canplaythrough 事件
+                    debugLog('视频未完全准备好，等待 canplaythrough 事件:', video.id, 'readyState:', video.readyState);
+                    const onCanPlayThrough = function() {
+                        debugLog('视频已完全准备好，开始播放:', video.id);
+                        video.removeEventListener('canplaythrough', onCanPlayThrough);
+                        // 优先使用点击时保存的高度
+                        let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                        if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                            placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                            if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                const rect = placeholder.getBoundingClientRect();
+                                placeholderActualHeight = rect.height;
+                            }
+                        }
+                        const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                        const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                        fadeInVideo(video, placeholder, container, finalTargetHeight);
+                        
+                        video.play().catch(err => {
+                            debugLog('播放失败:', err, video.id);
+                            resetVideoState(video, placeholder, container);
+                        });
+                    };
+                    
+                    if ('canplaythrough' in video) {
+                        video.addEventListener('canplaythrough', onCanPlayThrough, { once: true });
+                    } else {
+                        // 降级方案：等待一段时间后检查 readyState
+                        setTimeout(() => {
+                            if (video.readyState >= 3) {
+                                // 优先使用点击时保存的高度
+                                let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                                if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                    placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                                    if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                        const rect = placeholder.getBoundingClientRect();
+                                        placeholderActualHeight = rect.height;
+                                    }
+                                }
+                                const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                                const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                                fadeInVideo(video, placeholder, container, finalTargetHeight);
+                                video.play().catch(err => {
+                                    debugLog('播放失败:', err, video.id);
+                                    resetVideoState(video, placeholder, container);
+                                });
+                            }
+                        }, 300);
+                    }
                 }
             }
         }
@@ -1363,7 +1665,7 @@
                         loadAndPlayVideo(video.id, videoSrc, placeholderId);
                     }
                 } else {
-                    handleVideoClick(video);
+                handleVideoClick(video);
                 }
             }
         }

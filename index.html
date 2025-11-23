@@ -339,6 +339,14 @@
         .video-container video.playing ~ .video-placeholder,
         .video-container video.playing ~ .play-button {
             display: none !important;
+            pointer-events: none !important;
+        }
+        
+        /* 桌面端：确保占位符不会阻挡视频元素的鼠标事件 */
+        @media (min-width: 769px) {
+            .video-placeholder {
+                pointer-events: none !important;
+            }
         }
 
         /* 确保图片视频铺满 */
@@ -772,56 +780,148 @@
         
         // 处理视频悬停（桌面端优化）
         function handleVideoHover(video) {
+            console.log('handleVideoHover 触发', {
+                paused: video.paused,
+                currentTime: video.currentTime,
+                readyState: video.readyState
+            });
+            
             // 如果视频正在播放，不做任何操作
-            if (!video.paused) {
+            if (!video.paused && video.currentTime > 0.5) {
+                console.log('视频正在播放，跳过');
                 return;
             }
             
             const container = video.closest('.video-container');
             const placeholder = container ? container.querySelector('.video-placeholder') : null;
             
-            // 隐藏封面图
+            // 立即隐藏占位符，并禁用指针事件
             if (placeholder) {
                 placeholder.style.display = 'none';
+                placeholder.style.setProperty('display', 'none', 'important');
+                placeholder.style.pointerEvents = 'none';
+                placeholder.style.zIndex = '1'; // 降低占位符层级
+                console.log('占位符已隐藏');
             }
             
-            // 强制确保视频状态正确：暂停并重置到开头
-            if (!video.paused) {
-                video.pause();
-            }
-            if (video.currentTime > 0.1) {
-                video.currentTime = 0;
-            }
-            
-            // 确保视频元素的 z-index 提高，显示在上层
+            // 确保视频元素可见且在上层
+            video.style.display = 'block';
             video.style.zIndex = '11';
+            video.style.pointerEvents = 'auto';
             
-            // 播放视频的函数
-            const playVideo = () => {
-                // 再次检查状态，确保视频已暂停
-                if (!video.paused) {
-                    return;
+            // 强制重置视频状态：先暂停，再重置时间
+            video.pause();
+            video.currentTime = 0;
+            
+            // 等待重置完成后再尝试播放
+            const tryPlay = () => {
+                // 确保占位符已隐藏且不会阻挡鼠标事件
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                    placeholder.style.setProperty('display', 'none', 'important');
+                    placeholder.style.pointerEvents = 'none';
+                    placeholder.style.zIndex = '1';
                 }
                 
+                // 确保视频可见且可以接收鼠标事件
+                video.style.display = 'block';
+                video.style.zIndex = '11';
+                video.style.pointerEvents = 'auto';
+                
+                // 再次强制重置状态
+                if (!video.paused) {
+                    video.pause();
+                }
+                if (video.currentTime > 0.1) {
+                    video.currentTime = 0;
+                }
+                
+                console.log('尝试播放，视频状态:', {
+                    paused: video.paused,
+                    currentTime: video.currentTime,
+                    readyState: video.readyState,
+                    display: video.style.display,
+                    zIndex: video.style.zIndex
+                });
+                
+                // 尝试播放
                 const playPromise = video.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
                         // 播放成功
+                        console.log('播放成功！');
                         video.classList.add('playing');
                         if (placeholder) {
                             placeholder.style.display = 'none';
+                            placeholder.style.setProperty('display', 'none', 'important');
+                            placeholder.style.pointerEvents = 'none';
                         }
                     }).catch(err => {
-                        console.log('自动播放失败:', err);
-                        // 播放失败时显示封面图
-                        if (placeholder) {
-                            placeholder.style.display = 'flex';
-                            video.style.zIndex = '1';
-                        }
-                        video.classList.remove('playing');
+                        console.log('播放失败:', err, '视频状态:', {
+                            paused: video.paused,
+                            readyState: video.readyState,
+                            currentTime: video.currentTime,
+                            networkState: video.networkState
+                        });
+                        
+                        // 不立即显示占位符，先尝试重试
+                        // 重置视频状态并重试播放
+                        video.currentTime = 0;
+                        
+                        // 第一次重试
+                        setTimeout(() => {
+                            const retryPromise = video.play();
+                            if (retryPromise !== undefined) {
+                                retryPromise.then(() => {
+                                    // 重试成功
+                                    console.log('第一次重试成功！');
+                                    video.classList.add('playing');
+                                    if (placeholder) {
+                                        placeholder.style.display = 'none';
+                                        placeholder.style.setProperty('display', 'none', 'important');
+                                        placeholder.style.pointerEvents = 'none';
+                                    }
+                                }).catch(retryErr => {
+                                    console.log('第一次重试失败:', retryErr, '视频状态:', {
+                                        paused: video.paused,
+                                        readyState: video.readyState,
+                                        currentTime: video.currentTime
+                                    });
+                                    // 再次重试
+                                    setTimeout(() => {
+                                        video.currentTime = 0;
+                                        const secondRetryPromise = video.play();
+                                        if (secondRetryPromise !== undefined) {
+                                            secondRetryPromise.then(() => {
+                                                console.log('第二次重试成功！');
+                                                video.classList.add('playing');
+                                                if (placeholder) {
+                                                    placeholder.style.display = 'none';
+                                                    placeholder.style.setProperty('display', 'none', 'important');
+                                                    placeholder.style.pointerEvents = 'none';
+                                                }
+                                            }).catch(() => {
+                                                console.log('所有重试都失败，最终视频状态:', {
+                                                    paused: video.paused,
+                                                    readyState: video.readyState,
+                                                    currentTime: video.currentTime,
+                                                    networkState: video.networkState
+                                                });
+                                                // 所有重试都失败，才显示占位符
+                                                if (placeholder) {
+                                                    placeholder.style.display = 'flex';
+                                                    video.style.zIndex = '1';
+                                                }
+                                                video.classList.remove('playing');
+                                            });
+                                        }
+                                    }, 200);
+                                });
+                            }
+                        }, 100);
                     });
                 } else {
-                    // 没有返回 Promise，直接播放
+                    // 直接播放（旧浏览器）
                     try {
                         video.play();
                         video.classList.add('playing');
@@ -832,15 +932,30 @@
                         console.log('播放失败:', e);
                         if (placeholder) {
                             placeholder.style.display = 'flex';
-                            video.style.zIndex = '1';
                         }
-                        video.classList.remove('playing');
                     }
                 }
             };
             
-            // 使用延迟确保视频状态已更新（特别是重置 currentTime 后）
-            setTimeout(playVideo, 100);
+            // 等待视频状态重置完成后再尝试播放
+            // 使用 seeked 事件确保时间重置完成
+            const onSeeked = () => {
+                video.removeEventListener('seeked', onSeeked);
+                setTimeout(() => {
+                    tryPlay();
+                }, 50);
+            };
+            
+            // 如果视频已经在开头，直接尝试播放
+            if (video.currentTime < 0.1) {
+                setTimeout(() => {
+                    tryPlay();
+                }, 50);
+            } else {
+                // 需要等待 seeked 事件
+                video.addEventListener('seeked', onSeeked, { once: true });
+                video.currentTime = 0;
+            }
         }
         
         // 处理视频悬停离开（桌面端）
@@ -849,32 +964,37 @@
             if (!video.paused) {
                 video.pause();
             }
-            // 移除播放状态类（这会让占位符显示）
+            // 移除播放状态类
             video.classList.remove('playing');
             
-            // 重置到开头
+            // 重置到开头（不重新加载视频，保持视频已加载状态）
             if (video.currentTime > 0.1) {
                 video.currentTime = 0;
             }
             
-            // 显示封面图和占位符（使用延迟确保重置完成）
+            // 显示封面图和占位符
             setTimeout(() => {
                 const container = video.closest('.video-container');
                 if (container) {
                     const placeholder = container.querySelector('.video-placeholder');
                     if (placeholder) {
-                        // 强制显示占位符，覆盖任何内联样式
+                        // 显示占位符，但不让它阻挡鼠标事件（因为桌面端悬停事件在视频上）
+                        // 桌面端占位符只是视觉显示，实际鼠标事件由视频元素接收
                         placeholder.style.display = 'flex';
+                        placeholder.style.setProperty('display', 'flex', 'important');
+                        placeholder.style.pointerEvents = 'none'; // 关键：不阻挡鼠标事件
+                        placeholder.style.zIndex = '10';
                         // 确保封面图也显示
                         const coverImg = placeholder.querySelector('.video-cover');
-                        if (coverImg && coverImg.style.display === 'none') {
+                        if (coverImg) {
                             coverImg.style.display = 'block';
                         }
                     }
-                    // 确保视频元素的 z-index 降低，让占位符在上层
+                    // 降低视频 z-index，但仍保持可接收鼠标事件
                     video.style.zIndex = '1';
+                    video.style.pointerEvents = 'auto';
                 }
-            }, 100); // 延迟确保视频已重置
+            }, 50); // 短延迟确保重置完成
         }
         
         // 处理视频可以播放（优化缓冲）

@@ -923,16 +923,56 @@
             
             // 更新粒子（从文字生成）
             function updateParticles() {
-                if (dimensions.width === 0 || dimensions.height === 0) return;
+                // 始终使用实际显示尺寸，确保 Canvas 尺寸正确
+                const rect = header.getBoundingClientRect();
+                let displayWidth = rect.width;
+                let displayHeight = rect.height;
                 
-                canvas.width = dimensions.width;
-                canvas.height = dimensions.height;
+                // 如果无法获取实际尺寸，尝试使用 dimensions
+                if (displayWidth === 0 || displayHeight === 0) {
+                    if (dimensions.width > 0 && dimensions.height > 0) {
+                        // 使用 dimensions 作为备用
+                        displayWidth = dimensions.width;
+                        displayHeight = dimensions.height;
+                    } else {
+                        // 如果 dimensions 也无效，延迟重试（可能是元素还没渲染完成）
+                        setTimeout(() => updateParticles(), 50);
+                        return;
+                    }
+                }
+                
+                // 更新 dimensions 为实际显示尺寸（确保同步）
+                dimensions = { width: displayWidth, height: displayHeight };
+                
+                // 设置 Canvas 内部尺寸（必须与显示尺寸完全一致）
+                // 注意：Canvas 的 CSS 是 width: 100%; height: 100%，所以内部尺寸必须匹配显示尺寸
+                canvas.width = displayWidth;
+                canvas.height = displayHeight;
                 
                 const { width, height } = dimensions;
                 
-                // 检测方向
+                // 验证尺寸有效性
+                if (width <= 0 || height <= 0 || !isFinite(width) || !isFinite(height)) {
+                    return;
+                }
+                
+                // 计算宽高比，用于自适应调整
+                const aspectRatio = width / height;
                 const isPortrait = height > width;
-                const textY = isPortrait ? height * 0.3 : height * 0.5;
+                const isUltraWide = aspectRatio > 2.5; // 超宽屏（21:9等）
+                const isSquare = aspectRatio > 0.9 && aspectRatio < 1.1; // 接近正方形
+                
+                // 根据窗口比例自适应文字位置
+                let textY;
+                if (isUltraWide) {
+                    textY = height * 0.4; // 超宽屏时稍微上移
+                } else if (isPortrait) {
+                    textY = height * 0.3; // 竖屏
+                } else if (isSquare) {
+                    textY = height * 0.45; // 正方形
+                } else {
+                    textY = height * 0.5; // 标准横屏
+                }
                 
                 // 字体大小计算
                 const tempCanvas = document.createElement('canvas');
@@ -942,27 +982,80 @@
                 tempCanvas.width = width;
                 tempCanvas.height = height;
                 
-                let fontSize = 400;
-                // 使用系统字体，如果没有 Cinzel 字体
-                tempCtx.font = `700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
+                // 根据窗口比例自适应初始字体大小
+                let baseFontSize;
+                if (isUltraWide) {
+                    baseFontSize = Math.min(width * 0.12, height * 0.7); // 超宽屏：基于宽度，限制高度
+                } else if (isPortrait) {
+                    baseFontSize = Math.min(width * 0.35, height * 0.3); // 竖屏：基于宽度
+                } else if (isSquare) {
+                    baseFontSize = Math.min(width * 0.3, height * 0.5); // 正方形：平衡
+                } else {
+                    baseFontSize = Math.min(width * 0.2, height * 0.55); // 标准横屏：平衡
+                }
                 
-                const targetWidth = width * 0.85;
+                // 确保 baseFontSize 有效
+                if (!isFinite(baseFontSize) || baseFontSize <= 0) {
+                    baseFontSize = 400; // 默认值
+                }
+                
+                let fontSize = Math.max(100, Math.min(600, Math.floor(baseFontSize))); // 限制在 100-600 之间（降低最小值）
+                
+                // 明确设置字体样式，防止斜体
+                tempCtx.font = `normal 700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
+                
+                // 根据窗口比例自适应目标宽度（边距）
+                let targetWidthRatio;
+                if (isUltraWide) {
+                    targetWidthRatio = 0.65; // 超宽屏：留更多边距
+                } else if (isPortrait) {
+                    targetWidthRatio = 0.85; // 竖屏：可以更宽
+                } else {
+                    targetWidthRatio = 0.75; // 标准：平衡
+                }
+                
+                const targetWidth = width * targetWidthRatio;
                 const textMetrics = tempCtx.measureText(text);
                 
-                if (textMetrics.width > targetWidth) {
+                if (textMetrics.width > targetWidth && textMetrics.width > 0) {
                     fontSize = Math.floor(fontSize * (targetWidth / textMetrics.width));
                 }
                 
-                const maxH = isPortrait ? height * 0.35 : height * 0.6;
+                // 根据窗口比例自适应最大高度
+                let maxHeightRatio;
+                if (isUltraWide) {
+                    maxHeightRatio = 0.5; // 超宽屏：限制高度
+                } else if (isPortrait) {
+                    maxHeightRatio = 0.35; // 竖屏
+                } else {
+                    maxHeightRatio = 0.6; // 标准横屏
+                }
+                
+                const maxH = height * maxHeightRatio;
                 if (fontSize > maxH) {
                     fontSize = maxH;
                 }
                 
-                tempCtx.font = `700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
+                // 最终验证 fontSize 有效性（确保不会太小）
+                if (!isFinite(fontSize) || fontSize < 50) {
+                    fontSize = 200; // 使用安全的默认值
+                }
+                
+                // 重新设置字体（确保使用计算后的字体大小，并明确指定 normal）
+                tempCtx.font = `normal 700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
                 tempCtx.fillStyle = 'white';
                 tempCtx.textAlign = 'center';
                 tempCtx.textBaseline = 'middle';
-                tempCtx.fillText(text, width / 2, textY);
+                
+                // 确保文字位置在 Canvas 范围内，防止超出（始终居中）
+                const textX = width / 2; // 始终水平居中
+                const finalTextY = Math.min(Math.max(textY, fontSize / 2), height - fontSize / 2);
+                
+                // 清除临时 Canvas（确保干净）
+                tempCtx.clearRect(0, 0, width, height);
+                
+                // 绘制文字
+                tempCtx.fillText(text, textX, finalTextY);
                 
                 // 采样逻辑 - 进一步优化性能（产生更少的粒子）
                 const imageData = tempCtx.getImageData(0, 0, width, height);
@@ -974,7 +1067,12 @@
                 const qualityFactor = density / 6;  // density = 12 时，qualityFactor = 2.0
                 // 移动端使用更大的步长，产生更少的粒子
                 const baseStep = isMobile ? (fontSize / 50) : (fontSize / 40);  // 移动端除数更大
-                const step = Math.max(isMobile ? 4 : 3, Math.floor(baseStep * qualityFactor));  // 移动端最小步长更大
+                let step = Math.max(isMobile ? 4 : 3, Math.floor(baseStep * qualityFactor));  // 移动端最小步长更大
+                
+                // 确保 step 有效
+                if (!isFinite(step) || step <= 0) {
+                    step = isMobile ? 4 : 3; // 使用默认值
+                }
                 
                 for (let y = 0; y < height; y += step) {
                     for (let x = 0; x < width; x += step) {
@@ -983,6 +1081,11 @@
                             newParticles.push(new Particle(x, y, width, height));
                         }
                     }
+                }
+                
+                // 如果未生成粒子，保持之前的粒子（避免闪烁）
+                if (newParticles.length === 0) {
+                    return; // 不更新 particles，保持之前的粒子
                 }
                 
                 // 限制最大粒子数量（防止过多粒子影响性能）
@@ -1099,12 +1202,28 @@
                 mouse = { x: null, y: null };
             }
             
-            // ResizeObserver 监听容器尺寸
-            const resizeObserver = new ResizeObserver((entries) => {
-                if (!entries || entries.length === 0) return;
+            // 统一的尺寸更新函数
+            function updateDimensions() {
+                // 使用 getBoundingClientRect 获取实际显示尺寸，更准确
+                const rect = header.getBoundingClientRect();
+                const width = rect.width;
+                const height = rect.height;
                 
-                const { width, height } = entries[0].contentRect;
+                if (width === 0 || height === 0) return;
+                
+                // 如果尺寸没有变化，不需要更新（但允许从 0 更新到实际尺寸）
+                // 使用 Math.abs 允许 1px 的误差（避免浮点数精度问题和微小变化）
+                const widthDiff = Math.abs(dimensions.width - width);
+                const heightDiff = Math.abs(dimensions.height - height);
+                if (widthDiff < 1 && heightDiff < 1 && dimensions.width > 0) {
+                    return; // 尺寸基本没变化，跳过更新
+                }
+                
                 dimensions = { width, height };
+                
+                // 立即更新 Canvas 内部尺寸，确保匹配（关键：必须在更新粒子前设置）
+                canvas.width = width;
+                canvas.height = height;
                 
                 // 重新初始化背景星星
                 bgStars = [];
@@ -1114,9 +1233,51 @@
                 
                 // 更新粒子
                 updateParticles();
+            }
+            
+            // ResizeObserver 监听容器尺寸
+            let resizeRafId = null;
+            const resizeObserver = new ResizeObserver((entries) => {
+                if (!entries || entries.length === 0) return;
+                // 使用 requestAnimationFrame 确保在下一帧更新（更可靠且及时）
+                if (resizeRafId) {
+                    cancelAnimationFrame(resizeRafId);
+                }
+                resizeRafId = requestAnimationFrame(() => {
+                    updateDimensions();
+                    resizeRafId = null;
+                });
             });
             
             resizeObserver.observe(header);
+            
+            // 添加 window resize 事件作为备用（处理开发者工具打开/关闭等情况）
+            let resizeTimeout = null;
+            function handleWindowResize() {
+                // 使用 requestAnimationFrame 确保及时响应
+                if (resizeTimeout) {
+                    cancelAnimationFrame(resizeTimeout);
+                }
+                resizeTimeout = requestAnimationFrame(() => {
+                    updateDimensions();
+                    resizeTimeout = null;
+                });
+            }
+            
+            window.addEventListener('resize', handleWindowResize);
+            
+            // 监听移动端屏幕旋转
+            window.addEventListener('orientationchange', () => {
+                // 屏幕旋转后需要等待布局完成
+                setTimeout(() => {
+                    updateDimensions();
+                }, 100);
+            });
+            
+            // 初始化时强制更新一次尺寸（确保首次加载正确）
+            setTimeout(() => {
+                updateDimensions();
+            }, 100);
             
             // 绑定事件
             canvas.addEventListener('mousemove', handleMouseMove);

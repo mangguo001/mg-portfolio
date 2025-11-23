@@ -249,14 +249,14 @@
                 file: 'demo_video.mp4',      // assets 文件夹里的文件名
                 title: 'UE5.6/MetaHuman 全职猎人尼飞彼多',          // 标题
                 desc: 'Blender / ue5.6 ', // 描述
-                link: 'https://www.bilibili.com/video/BV1zhCTB4Ebx/?vd_source=5a8a1e77dd02473c9b86e296eba3ee95' // 点击跳转链接
+                link: 'https://www.bilibili.com/video/BV1zhCTB4Ebx' // 点击跳转链接
             },
             {
                 type: 'video',
                 file: 'my_animation.mp4',  
                 title: '假如我家的猫COS全职猎人里的角色之尼飞彼多',
                 desc: 'Blender',
-                link: 'https://www.bilibili.com/video/BV1Kb1jBqEdM/?vd_source=5a8a1e77dd02473c9b86e296eba3ee95'
+                link: 'https://www.bilibili.com/video/BV1Kb1jBqEdM'
             },
             // --- 复制下面这一块来添加新作品 ---
             {
@@ -264,7 +264,7 @@
                 file: 'my_animation2.mp4',  
                 title: '九天揽月|自制动画',
                 desc: 'Blender',
-                link: 'https://www.bilibili.com/video/BV1Q7xVzBEyh/?vd_source=5a8a1e77dd02473c9b86e296eba3ee95'
+                link: 'https://www.bilibili.com/video/BV1Q7xVzBEyh'
             },
             // ----------------------------------
             {
@@ -272,7 +272,15 @@
                 file: '噬金虫.mp4',  
                 title: '噬金虫|位列人界奇虫榜第十二位，终成道祖',
                 desc: 'Blender',
-                link: 'https://www.bilibili.com/video/BV1FrHnzaEB1/?vd_source=5a8a1e77dd02473c9b86e296eba3ee95'
+                link: 'https://www.bilibili.com/video/BV1FrHnzaEB1'
+            },
+                        // ----------------------------------
+                        {
+                type: 'video',
+                file: '全职猎人凯特.mp4',  
+                title: '全职猎人凯特真人版',
+                desc: 'Blender',
+                link: 'https://www.bilibili.com/video/BV13mW4zzEVW'
             },
         ];
 
@@ -316,7 +324,7 @@
             }
 
             card.innerHTML = `
-                <a href="${item.link}" target="_blank" style="text-decoration:none; color:inherit;">
+                <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
                     ${mediaHTML}
                     <div class="meta">
                         <div class="work-title">${item.title}</div>

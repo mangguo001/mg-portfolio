@@ -140,6 +140,43 @@
             overflow: hidden;
         }
 
+        /* 视频容器特殊处理 */
+        .video-container {
+            cursor: pointer;
+        }
+
+        /* 播放按钮（移动端显示） */
+        .play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70px;
+            height: 70px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            display: none; /* 默认隐藏，移动端显示 */
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 28px;
+            z-index: 5;
+            transition: all 0.3s ease;
+            pointer-events: auto;
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .play-button:active {
+            transform: translate(-50%, -50%) scale(0.95);
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        /* 视频播放时隐藏播放按钮 */
+        .video-container video:not([paused]) ~ .play-button {
+            display: none !important;
+        }
+
         /* 确保图片视频铺满 */
         img, video {
             width: 100%;
@@ -190,6 +227,29 @@
             .gallery { column-count: 1; } /* 手机变1列 */
             h1 { font-size: 3rem; }
             body { padding: 20px; }
+            
+            /* 移动端显示播放按钮 */
+            .play-button {
+                display: flex;
+            }
+            
+            /* 移动端点击时视频播放，隐藏按钮 */
+            .video-container:active .play-button {
+                opacity: 0;
+                transition: opacity 0.2s;
+            }
+            
+            /* 移动端视频点击播放 */
+            .video-container video {
+                cursor: pointer;
+            }
+        }
+
+        /* 桌面端隐藏播放按钮 */
+        @media (min-width: 769px) {
+            .play-button {
+                display: none;
+            }
         }
         
         
@@ -235,6 +295,68 @@
     <div class="gallery" id="app"></div>
 
     <script>
+        // ========================================================
+        // 🎬 视频播放控制函数（移动端优化）
+        // ========================================================
+        
+        // 播放视频（点击播放按钮时调用）
+        function playVideo(videoId) {
+            const video = document.getElementById(videoId);
+            if (video) {
+                const playButton = video.nextElementSibling;
+                video.play().then(() => {
+                    if (playButton && playButton.classList.contains('play-button')) {
+                        playButton.style.display = 'none';
+                    }
+                }).catch(err => {
+                    console.log('播放失败:', err);
+                });
+            }
+        }
+
+        // 处理视频点击（移动端和桌面端）
+        function handleVideoClick(video, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            const playButton = video.nextElementSibling;
+            if (video.paused) {
+                video.play().then(() => {
+                    if (playButton && playButton.classList.contains('play-button')) {
+                        playButton.style.display = 'none';
+                    }
+                }).catch(err => {
+                    console.log('播放失败:', err);
+                });
+            } else {
+                video.pause();
+                if (playButton && playButton.classList.contains('play-button')) {
+                    playButton.style.display = 'flex';
+                }
+            }
+        }
+
+        // 处理触摸开始（移动端）
+        let touchStartTime = 0;
+        function handleVideoTouchStart(video) {
+            touchStartTime = Date.now();
+        }
+
+        // 处理触摸结束（移动端）
+        function handleVideoTouchEnd(video, event) {
+            const touchDuration = Date.now() - touchStartTime;
+            // 短按（小于300ms）视为点击，播放视频
+            if (touchDuration < 300) {
+                if (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                handleVideoClick(video);
+            }
+        }
+
         // ========================================================
         // 🔧 【后台管理区】 修改这里的内容来更新网站
         // ⚠️ 注意：
@@ -298,20 +420,28 @@
             let mediaHTML = '';
 
             if (item.type === 'video') {
-                // 视频：静音、循环、鼠标悬停播放
-                // preload="metadata" 确保加载第一帧画面
+                // 视频：支持桌面端悬停播放和移动端点击播放
+                // 为每个视频生成唯一ID
+                const videoId = `video-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                 mediaHTML = `
-                    <div class="media-box">
+                    <div class="media-box video-container">
                         <span class="badge">VIDEO</span>
                         <video 
+                            id="${videoId}"
                             src="${assetPath + item.file}" 
                             muted 
                             loop 
                             playsinline
                             preload="metadata"
-                            onmouseover="this.play()" 
-                            onmouseout="this.pause()"
+                            onmouseover="if(window.innerWidth > 768){this.play();}" 
+                            onmouseout="if(window.innerWidth > 768){this.pause(); this.currentTime=0;}"
+                            onclick="handleVideoClick(this, event);"
+                            ontouchstart="handleVideoTouchStart(this);"
+                            ontouchend="handleVideoTouchEnd(this, event);"
                         ></video>
+                        <div class="play-button" onclick="playVideo('${videoId}'); if(event){event.stopPropagation();}">
+                            ▶
+                        </div>
                     </div>
                 `;
             } else {
@@ -323,17 +453,69 @@
                 `;
             }
 
-            card.innerHTML = `
-                <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
+            // 优化：视频区域点击播放，文字区域点击跳转
+            if (item.type === 'video') {
+                card.innerHTML = `
                     ${mediaHTML}
-                    <div class="meta">
-                        <div class="work-title">${item.title}</div>
-                        <div class="work-desc">${item.desc}</div>
-                    </div>
-                </a>
-            `;
+                    <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
+                        <div class="meta">
+                            <div class="work-title">${item.title}</div>
+                            <div class="work-desc">${item.desc}</div>
+                        </div>
+                    </a>
+                `;
+            } else {
+                card.innerHTML = `
+                    <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
+                        ${mediaHTML}
+                        <div class="meta">
+                            <div class="work-title">${item.title}</div>
+                            <div class="work-desc">${item.desc}</div>
+                        </div>
+                    </a>
+                `;
+            }
 
             gallery.appendChild(card);
+            
+            // 为视频添加加载完成事件处理（移动端优化）
+            if (item.type === 'video') {
+                const cardElement = gallery.lastElementChild;
+                const video = cardElement.querySelector('video');
+                const playButton = cardElement.querySelector('.play-button');
+                
+                if (video && playButton) {
+                    // 视频加载完成，确保显示播放按钮（如果是暂停状态）
+                    video.addEventListener('loadedmetadata', function() {
+                        if (this.paused && window.innerWidth <= 768) {
+                            playButton.style.display = 'flex';
+                        }
+                    });
+                    
+                    // 视频播放时隐藏播放按钮
+                    video.addEventListener('play', function() {
+                        playButton.style.display = 'none';
+                    });
+                    
+                    // 视频暂停时显示播放按钮（移动端）
+                    video.addEventListener('pause', function() {
+                        if (window.innerWidth <= 768) {
+                            playButton.style.display = 'flex';
+                        }
+                    });
+                    
+                    // 处理窗口大小变化
+                    window.addEventListener('resize', function() {
+                        if (window.innerWidth <= 768) {
+                            if (video.paused) {
+                                playButton.style.display = 'flex';
+                            }
+                        } else {
+                            playButton.style.display = 'none';
+                        }
+                    });
+                }
+            }
         });
     </script>
 

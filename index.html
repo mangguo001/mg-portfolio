@@ -827,18 +827,13 @@
             // 添加点击标记，让封面图变为彩色
             placeholder.classList.add('clicked');
             
-            // 显示加载提示
-            let loadingDiv = placeholder.querySelector('.video-loading');
-            if (!loadingDiv) {
-                loadingDiv = document.createElement('div');
-                loadingDiv.className = 'video-loading';
-                loadingDiv.textContent = '加载中...';
-                loadingDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 5px; z-index: 100; font-size: 14px;';
-                placeholder.appendChild(loadingDiv);
-            } else {
-                loadingDiv.style.display = 'block';
-                loadingDiv.textContent = '加载中...';
-            }
+            // 不显示加载提示，封面图保持可见直到视频加载完成
+            // 确保封面图可见且可点击状态
+            placeholder.style.opacity = '1';
+            placeholder.style.pointerEvents = 'auto';
+            
+            // 用于错误处理时的提示（仅在出错时使用）
+            let loadingDiv = null;
             
             // 设置视频源并加载
             if (!video.src || video.src !== videoSrc) {
@@ -850,10 +845,16 @@
                 const onError = function(e) {
                     console.error('视频加载错误:', e, videoSrc);
                     video.removeEventListener('error', onError);
-                    if (loadingDiv) {
-                        loadingDiv.textContent = '加载失败，点击重试';
-                        loadingDiv.style.display = 'block';
+                    // 仅在出错时显示错误提示
+                    let errorDiv = placeholder.querySelector('.video-loading');
+                    if (!errorDiv) {
+                        errorDiv = document.createElement('div');
+                        errorDiv.className = 'video-loading';
+                        errorDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 5px; z-index: 100; font-size: 14px;';
+                        placeholder.appendChild(errorDiv);
                     }
+                    errorDiv.textContent = '加载失败，点击重试';
+                    errorDiv.style.display = 'block';
                     // 确保容器状态正确
                     const container = placeholder.closest('.video-container');
                     if (container) {
@@ -882,10 +883,7 @@
                     video.removeEventListener('canplay', onCanPlay);
                     video.removeEventListener('error', onError);
                     
-                    // 移除加载提示
-                    if (loadingDiv) {
-                        loadingDiv.remove();
-                    }
+                    // 封面图将在淡入淡出过程中自动隐藏，无需移除加载提示
                     
                     // 优先从视频元素获取原始高度（视频的实际尺寸）
                     const container = placeholder.closest('.video-container');
@@ -987,11 +985,8 @@
                             placeholder.style.opacity = '1';
                             placeholder.style.pointerEvents = 'auto';
                             placeholder.style.transition = '';
-                            if (loadingDiv) {
-                                loadingDiv.textContent = '播放失败，点击重试';
-                                loadingDiv.style.display = 'block';
-                                placeholder.appendChild(loadingDiv);
-                            }
+                            // 播放失败时，封面图会恢复显示，用户可再次点击重试
+                            // 不显示错误提示，让用户直接点击重试
                         });
                     }
                 };
@@ -1000,9 +995,7 @@
             } else {
                 // 视频已加载，直接播放
                 console.log('视频已加载，直接播放:', video.id);
-                if (loadingDiv) {
-                    loadingDiv.remove();
-                }
+                // 封面图将在淡入淡出过程中自动隐藏，无需移除加载提示
                 
                 // 优先从视频元素获取原始高度（视频的实际尺寸）
                 const container = placeholder.closest('.video-container');
@@ -1107,12 +1100,8 @@
                         placeholder.style.display = 'block';
                         placeholder.style.transition = '';
                         
-                        // 显示加载提示
-                        if (loadingDiv) {
-                            loadingDiv.textContent = '播放失败，点击重试';
-                            loadingDiv.style.display = 'block';
-                            placeholder.appendChild(loadingDiv);
-                        }
+                        // 播放失败时，封面图会恢复显示，用户可再次点击重试
+                        // 不显示错误提示，让用户直接点击重试
                     });
                 }
             }

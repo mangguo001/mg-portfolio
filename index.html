@@ -215,11 +215,16 @@
             }
         }
         
-        /* 移动端优化：确保容器有合适的高度和固定比例 */
+        /* 移动端优化：移除固定比例，使用视频原始比例 */
         @media (max-width: 768px) {
             .media-box {
-                min-height: 250px;
-                aspect-ratio: 16 / 9; /* 移动端固定比例，确保显示正常 */
+                min-height: 200px;
+                /* 移除 aspect-ratio，让视频保持原始比例 */
+            }
+            
+            /* 隐藏移动端播放按钮 */
+            .play-button-large {
+                display: none !important;
             }
         }
 
@@ -389,21 +394,42 @@
             }
         }
         
-        /* 移动端：图片和视频填满容器 */
+        /* 移动端：图片和视频保持原始比例 */
         @media (max-width: 768px) {
-            .media-box img,
+            .media-box img:not(.video-cover),
             .media-box video {
-                height: 100%;
+                height: auto; /* 保持原始比例 */
+                width: 100%;
             }
             
-            /* 移动端：对于直接放在 .media-box 内的图片和视频，使用绝对定位 */
-            .media-box > img:not(.video-cover),
-            .media-box > video {
+            /* 视频容器内的视频保持原始比例 */
+            .video-container video {
+                position: relative;
+                height: auto;
+                width: 100%;
+                display: block;
+            }
+            
+            /* 图片保持原始比例 */
+            .media-box > img:not(.video-cover) {
+                position: relative;
+                height: auto;
+                width: 100%;
+            }
+            
+            /* 封面图仍然填满容器（占位符内） */
+            .video-placeholder .video-cover {
                 position: absolute;
                 top: 0;
                 left: 0;
                 width: 100%;
                 height: 100%;
+                object-fit: cover;
+            }
+            
+            /* 移动端视频播放时显示 */
+            .video-container video.playing {
+                display: block !important;
             }
         }
 
@@ -758,6 +784,109 @@
                                 coverImg.style.display = 'block';
                             }
                         }
+                    });
+                }
+            }
+        }
+        
+        // 移动端视频自动播放设置（使用 Intersection Observer）
+        function setupMobileVideoAutoplay(videoId, videoSrc, placeholderId) {
+            const container = document.querySelector(`[data-video-id="${videoId}"]`);
+            if (!container) return;
+            
+            const video = document.getElementById(videoId);
+            const placeholder = document.getElementById(placeholderId);
+            
+            if (!video || !placeholder) return;
+            
+            // 创建 Intersection Observer
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        // 进入视口，自动播放
+                        autoPlayMobileVideo(video, videoSrc, placeholder);
+                    } else {
+                        // 离开视口，暂停视频
+                        if (!video.paused) {
+                            video.pause();
+                            video.currentTime = 0;
+                            // 显示封面图
+                            if (placeholder) {
+                                placeholder.style.display = 'flex';
+                                const coverImg = placeholder.querySelector('.video-cover');
+                                if (coverImg) {
+                                    coverImg.style.display = 'block';
+                                }
+                            }
+                            video.style.display = 'none';
+                        }
+                    }
+                });
+            }, {
+                threshold: 0.5, // 当50%的视频区域进入视口时触发
+                rootMargin: '0px'
+            });
+            
+            observer.observe(container);
+        }
+        
+        // 移动端视频自动播放函数
+        function autoPlayMobileVideo(video, videoSrc, placeholder) {
+            // 如果视频正在播放，直接返回
+            if (!video.paused && video.readyState >= 2) {
+                return;
+            }
+            
+            // 如果视频还没加载，先加载视频源
+            const currentSrc = video.src || video.getAttribute('data-src') || '';
+            if (!currentSrc || currentSrc !== videoSrc) {
+                video.src = videoSrc;
+                video.load();
+                
+                // 等待视频可以播放
+                const onCanPlay = function() {
+                    video.removeEventListener('canplay', onCanPlay);
+                    video.style.display = 'block';
+                    
+                    // 隐藏封面图
+                    if (placeholder) {
+                        placeholder.style.display = 'none';
+                    }
+                    
+                    // 开始播放
+                    const playPromise = video.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            console.log('移动端视频自动播放成功');
+                        }).catch(err => {
+                            console.log('自动播放失败:', err);
+                            // 如果自动播放失败，显示封面图
+                            if (placeholder) {
+                                placeholder.style.display = 'flex';
+                            }
+                            video.style.display = 'none';
+                        });
+                    }
+                };
+                
+                video.addEventListener('canplay', onCanPlay, { once: true });
+            } else {
+                // 视频已加载，直接播放
+                video.style.display = 'block';
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log('移动端视频自动播放成功');
+                    }).catch(err => {
+                        console.log('播放失败:', err);
+                        // 如果播放失败，显示封面图
+                        if (placeholder) {
+                            placeholder.style.display = 'flex';
+                        }
+                        video.style.display = 'none';
                     });
                 }
             }
@@ -1410,49 +1539,48 @@
             // 清空画廊
             gallery.innerHTML = '';
 
-            works.forEach(item => {
+            works.forEach((item, index) => {
             const card = document.createElement('div');
             card.className = 'item';
             // 添加分类属性，如果没有分类则默认为"其他"
             card.setAttribute('data-category', item.category || '其他');
             
             let mediaHTML = '';
+            
+            // 在循环外部定义变量，确保作用域正确
+            let isMobile = false;
+            let videoId = '';
+            let placeholderId = '';
+            let videoSrc = '';
+            let coverSrc = '';
 
             if (item.type === 'video') {
                 // 视频：移动端懒加载优化，桌面端正常加载
-                const isMobile = isMobileDevice();
-                const videoId = `video-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                const placeholderId = `placeholder-${videoId}`;
-                const videoSrc = assetPath + item.file;
-                const coverSrc = getCoverImagePath(item.file, item.cover, assetPath);
+                isMobile = isMobileDevice();
+                videoId = `video-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`;
+                placeholderId = `placeholder-${videoId}`;
+                videoSrc = assetPath + item.file;
+                coverSrc = getCoverImagePath(item.file, item.cover, assetPath);
                 
                 if (isMobile) {
-                    // 移动端：使用占位符和封面图，点击后加载
+                    // 移动端：自动播放（滚动到视口时）
                     mediaHTML = `
-                        <div class="media-box video-container" data-video-src="${videoSrc}">
+                        <div class="media-box video-container mobile-video-item" data-video-id="${videoId}" data-video-src="${videoSrc}" data-placeholder-id="${placeholderId}">
                             <span class="badge">VIDEO</span>
-                            <div class="video-placeholder" id="${placeholderId}" onclick="loadAndPlayVideo('${videoId}', '${videoSrc}', '${placeholderId}'); event.stopPropagation();">
+                            <div class="video-placeholder" id="${placeholderId}">
                                 <img class="video-cover" src="${coverSrc}" alt="${item.title}" onerror="handleCoverError(this, '${item.file}');" loading="lazy">
-                                <div class="play-button-large">
-                                    ▶
-                                </div>
                             </div>
                             <video 
                                 id="${videoId}"
+                                data-src="${videoSrc}"
                                 muted 
                                 loop 
                                 playsinline
                                 preload="none"
                                 style="display: none;"
-                                onclick="handleVideoClick(this, event);"
-                                ontouchstart="handleVideoTouchStart(this);"
-                                ontouchend="handleVideoTouchEnd(this, event);"
                                 webkit-playsinline="true"
                                 x5-playsinline="true"
                             ></video>
-                            <div class="play-button" onclick="loadAndPlayVideo('${videoId}', '${videoSrc}', '${placeholderId}'); if(event){event.stopPropagation();}" style="display: none;">
-                                ▶
-                            </div>
                         </div>
                     `;
                 } else {
@@ -1517,6 +1645,14 @@
             }
 
             gallery.appendChild(card);
+            
+            // 移动端视频自动播放（滚动到视口时）
+            if (isMobile && item.type === 'video') {
+                // 延迟设置，确保DOM已完全加载
+                setTimeout(() => {
+                    setupMobileVideoAutoplay(videoId, videoSrc, placeholderId);
+                }, 100);
+            }
             
             // 为视频添加加载完成事件处理（移动端优化）
             if (item.type === 'video') {

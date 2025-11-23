@@ -633,6 +633,18 @@
         // 🎬 视频播放控制函数（移动端优化）
         // ========================================================
         
+        // 调试模式标志（生产环境设为 false）
+        const DEBUG = true;
+        
+        // 调试日志函数
+        function debugLog(...args) {
+            if (DEBUG) console.log(...args);
+        }
+        
+        function debugError(...args) {
+            if (DEBUG) console.error(...args);
+        }
+        
         // 检测是否为移动端
         function isMobileDevice() {
             return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -661,7 +673,7 @@
             const placeholder = placeholderId ? document.getElementById(placeholderId) : null;
             
             if (!video) {
-                console.error('视频元素不存在:', videoId);
+                debugError('视频元素不存在:', videoId);
                 return;
             }
             
@@ -723,9 +735,9 @@
                     const playPromise = video.play();
                     if (playPromise !== undefined) {
                         playPromise.then(() => {
-                            console.log('视频播放成功');
+                            debugLog('视频播放成功');
                         }).catch(err => {
-                            console.log('播放失败:', err);
+                            debugLog('播放失败:', err);
                             // 如果自动播放失败，显示播放按钮
                             if (placeholder) {
                                 placeholder.style.display = 'flex';
@@ -755,7 +767,7 @@
                 
                 // 错误处理
                 const onError = function(e) {
-                    console.error('视频加载错误:', e, videoSrc);
+                    debugError('视频加载错误:', e, videoSrc);
                     video.classList.remove('loading');
                     if (placeholder) {
                         const loadingDiv = placeholder.querySelector('.video-loading');
@@ -794,7 +806,7 @@
                 const playPromise = video.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(err => {
-                        console.log('播放失败:', err);
+                        debugLog('播放失败:', err);
                         if (placeholder) {
                             placeholder.style.display = 'flex';
                             const coverImg = placeholder.querySelector('.video-cover');
@@ -807,22 +819,137 @@
             }
         }
         
-        // 移动端视频点击播放函数
+        // ========================================================
+        // 🔧 工具函数：视频高度计算
+        // ========================================================
+        function calculateVideoHeight(video, container, placeholder, coverImg) {
+            let targetHeight = 0;
+            
+            // 优先使用视频的原始高度，并根据容器宽度计算显示高度（保持宽高比）
+            if (video.videoHeight > 0 && video.videoWidth > 0) {
+                const containerWidth = container ? (container.offsetWidth || container.clientWidth) : window.innerWidth;
+                const aspectRatio = video.videoHeight / video.videoWidth;
+                targetHeight = containerWidth * aspectRatio;
+                debugLog('使用视频原始尺寸:', video.videoWidth, 'x', video.videoHeight, '宽高比:', aspectRatio, '容器宽度:', containerWidth, '计算高度:', targetHeight);
+            }
+            
+            // 如果视频高度不可用，使用封面图片高度
+            if (!targetHeight || targetHeight === 0) {
+                if (coverImg) {
+                    const imgHeight = coverImg.offsetHeight || coverImg.naturalHeight;
+                    if (imgHeight > 0) {
+                        targetHeight = imgHeight;
+                        debugLog('使用封面图片高度:', targetHeight);
+                    }
+                }
+            }
+            
+            // 如果仍然没有高度，使用占位符或容器高度
+            if (!targetHeight || targetHeight === 0) {
+                targetHeight = placeholder.offsetHeight || (container ? container.offsetHeight : 300);
+                debugLog('使用占位符/容器高度:', targetHeight);
+            }
+            
+            debugLog('最终高度:', targetHeight, '视频尺寸:', video.videoWidth + 'x' + video.videoHeight, '封面图片高度:', coverImg ? (coverImg.offsetHeight || coverImg.naturalHeight) : '无');
+            return targetHeight;
+        }
+        
+        // ========================================================
+        // 🔧 工具函数：淡入淡出过渡
+        // ========================================================
+        function fadeInVideo(video, placeholder, container, targetHeight) {
+            // 先设置容器高度，防止塌陷（必须在改变占位符位置之前）
+            if (container && targetHeight > 0) {
+                container.style.height = targetHeight + 'px';
+                container.style.minHeight = targetHeight + 'px';
+                container.style.position = 'relative'; // 确保容器是定位上下文
+            }
+            
+            // 先让占位符改为绝对定位，准备淡出
+            placeholder.style.position = 'absolute';
+            placeholder.style.top = '0';
+            placeholder.style.left = '0';
+            placeholder.style.width = '100%';
+            placeholder.style.height = targetHeight + 'px';
+            placeholder.style.pointerEvents = 'none';
+            placeholder.style.transition = 'opacity 0.5s ease-in-out';
+            
+            // 设置视频元素的高度和位置，初始透明度为0（准备淡入）
+            video.style.position = 'absolute';
+            video.style.top = '0';
+            video.style.left = '0';
+            video.style.width = '100%';
+            video.style.height = targetHeight + 'px';
+            video.style.display = 'block';
+            video.style.zIndex = '11';
+            video.style.opacity = '0';
+            video.style.transition = 'opacity 0.5s ease-in-out';
+            video.classList.add('playing');
+            
+            // 使用 requestAnimationFrame 确保样式已应用，然后触发交叉淡入淡出
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    // 同时触发占位符淡出和视频淡入
+                    placeholder.style.opacity = '0';
+                    video.style.opacity = '1';
+                });
+            });
+        }
+        
+        // ========================================================
+        // 🔧 工具函数：恢复视频状态（错误处理）
+        // ========================================================
+        function resetVideoState(video, placeholder, container) {
+            // 恢复视频样式
+            video.style.display = 'none';
+            video.style.position = '';
+            video.style.top = '';
+            video.style.left = '';
+            video.style.width = '';
+            video.style.height = '';
+            video.style.opacity = '';
+            video.style.transition = '';
+            video.classList.remove('playing');
+            
+            // 恢复容器高度和样式
+            if (container) {
+                container.style.height = '';
+                container.style.minHeight = '';
+                container.style.position = '';
+            }
+            
+            // 恢复占位符样式
+            placeholder.style.position = 'relative';
+            placeholder.style.width = '100%';
+            placeholder.style.height = 'auto';
+            placeholder.style.opacity = '1';
+            placeholder.style.pointerEvents = 'auto';
+            placeholder.style.display = 'block';
+            placeholder.style.transition = '';
+        }
+        
+        // ========================================================
+        // 🎬 移动端视频点击播放函数
+        // ========================================================
         function handleMobileVideoClick(videoId, videoSrc, placeholderId) {
-            console.log('点击播放视频:', videoId, videoSrc);
+            debugLog('点击播放视频:', videoId, videoSrc);
             const video = document.getElementById(videoId);
             const placeholder = document.getElementById(placeholderId);
             
             if (!video || !placeholder) {
-                console.error('找不到视频或占位符:', { videoId, placeholderId });
+                debugError('找不到视频或占位符:', { videoId, placeholderId });
                 return;
             }
             
             // 如果视频正在播放，不做任何操作
             if (!video.paused && video.readyState >= 2) {
-                console.log('视频已在播放，跳过');
+                debugLog('视频已在播放，跳过');
                 return;
             }
+            
+            // 缓存常用元素，避免重复查询
+            const container = placeholder.closest('.video-container');
+            const coverImg = placeholder.querySelector('.video-cover');
             
             // 添加点击标记，让封面图变为彩色
             placeholder.classList.add('clicked');
@@ -832,18 +959,15 @@
             placeholder.style.opacity = '1';
             placeholder.style.pointerEvents = 'auto';
             
-            // 用于错误处理时的提示（仅在出错时使用）
-            let loadingDiv = null;
-            
             // 设置视频源并加载
             if (!video.src || video.src !== videoSrc) {
-                console.log('设置视频源:', videoSrc);
+                debugLog('设置视频源:', videoSrc);
                 video.src = videoSrc;
                 video.load();
                 
                 // 添加错误处理
                 const onError = function(e) {
-                    console.error('视频加载错误:', e, videoSrc);
+                    debugError('视频加载错误:', e, videoSrc);
                     video.removeEventListener('error', onError);
                     // 仅在出错时显示错误提示
                     let errorDiv = placeholder.querySelector('.video-loading');
@@ -855,138 +979,34 @@
                     }
                     errorDiv.textContent = '加载失败，点击重试';
                     errorDiv.style.display = 'block';
-                    // 确保容器状态正确
-                    const container = placeholder.closest('.video-container');
-                    if (container) {
-                        container.style.height = '';
-                        container.style.minHeight = '';
-                        container.style.position = '';
-                    }
-                    // 恢复视频样式
-                    video.style.opacity = '';
-                    video.style.transition = '';
-                    // 保持封面图显示
-                    placeholder.style.position = 'relative';
-                    placeholder.style.width = '100%';
-                    placeholder.style.height = 'auto';
-                    placeholder.style.opacity = '1';
-                    placeholder.style.pointerEvents = 'auto';
-                    placeholder.style.display = 'block';
-                    placeholder.style.transition = '';
+                    // 使用工具函数恢复状态
+                    resetVideoState(video, placeholder, container);
                 };
                 
                 video.addEventListener('error', onError, { once: true });
                 
                 // 等待视频可以播放
                 const onCanPlay = function() {
-                    console.log('视频可以播放:', video.id);
+                    debugLog('视频可以播放:', video.id);
                     video.removeEventListener('canplay', onCanPlay);
                     video.removeEventListener('error', onError);
                     
-                    // 封面图将在淡入淡出过程中自动隐藏，无需移除加载提示
+                    // 使用工具函数计算高度
+                    const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
                     
-                    // 优先从视频元素获取原始高度（视频的实际尺寸）
-                    const container = placeholder.closest('.video-container');
-                    const coverImg = placeholder.querySelector('.video-cover');
-                    let targetHeight = 0;
-                    
-                    // 优先使用视频的原始高度，并根据容器宽度计算显示高度（保持宽高比）
-                    if (video.videoHeight > 0 && video.videoWidth > 0) {
-                        const containerWidth = container ? (container.offsetWidth || container.clientWidth) : window.innerWidth;
-                        // 根据视频宽高比计算高度
-                        const aspectRatio = video.videoHeight / video.videoWidth;
-                        targetHeight = containerWidth * aspectRatio;
-                        console.log('使用视频原始尺寸:', video.videoWidth, 'x', video.videoHeight, '宽高比:', aspectRatio, '容器宽度:', containerWidth, '计算高度:', targetHeight);
-                    }
-                    
-                    // 如果视频高度不可用，使用封面图片高度
-                    if (!targetHeight || targetHeight === 0) {
-                        if (coverImg) {
-                            const imgHeight = coverImg.offsetHeight || coverImg.naturalHeight;
-                            if (imgHeight > 0) {
-                                targetHeight = imgHeight;
-                                console.log('使用封面图片高度:', targetHeight);
-                            }
-                        }
-                    }
-                    
-                    // 如果仍然没有高度，使用占位符或容器高度
-                    if (!targetHeight || targetHeight === 0) {
-                        targetHeight = placeholder.offsetHeight || (container ? container.offsetHeight : 300);
-                        console.log('使用占位符/容器高度:', targetHeight);
-                    }
-                    
-                    console.log('最终高度:', targetHeight, '视频尺寸:', video.videoWidth + 'x' + video.videoHeight, '封面图片高度:', coverImg ? (coverImg.offsetHeight || coverImg.naturalHeight) : '无');
-                    
-                    // 先设置容器高度，防止塌陷（必须在改变占位符位置之前）
-                    if (container && targetHeight > 0) {
-                        container.style.height = targetHeight + 'px';
-                        container.style.minHeight = targetHeight + 'px';
-                        container.style.position = 'relative'; // 确保容器是定位上下文
-                    }
-                    
-                    // 先让占位符改为绝对定位，准备淡出
-                    placeholder.style.position = 'absolute';
-                    placeholder.style.top = '0';
-                    placeholder.style.left = '0';
-                    placeholder.style.width = '100%';
-                    placeholder.style.height = targetHeight + 'px';
-                    placeholder.style.pointerEvents = 'none';
-                    placeholder.style.transition = 'opacity 0.5s ease-in-out';
-                    
-                    // 设置视频元素的高度和位置，初始透明度为0（准备淡入）
-                    video.style.position = 'absolute';
-                    video.style.top = '0';
-                    video.style.left = '0';
-                    video.style.width = '100%';
-                    video.style.height = targetHeight + 'px';
-                    video.style.display = 'block';
-                    video.style.zIndex = '11';
-                    video.style.opacity = '0';
-                    video.style.transition = 'opacity 0.5s ease-in-out';
-                    video.classList.add('playing');
-                    
-                    // 使用 requestAnimationFrame 确保样式已应用，然后触发交叉淡入淡出
-                    requestAnimationFrame(() => {
-                        requestAnimationFrame(() => {
-                            // 同时触发占位符淡出和视频淡入
-                            placeholder.style.opacity = '0';
-                            video.style.opacity = '1';
-                        });
-                    });
+                    // 使用工具函数执行淡入淡出过渡
+                    fadeInVideo(video, placeholder, container, targetHeight);
                     
                     // 开始播放
                     const playPromise = video.play();
                     if (playPromise !== undefined) {
                         playPromise.then(() => {
-                            console.log('移动端视频播放成功:', video.id);
+                            debugLog('移动端视频播放成功:', video.id);
                         }).catch(err => {
-                            console.log('播放失败:', err, video.id);
-                            // 如果播放失败，恢复封面图显示，隐藏视频
-                            const container = placeholder.closest('.video-container');
-                            
-                            // 恢复视频样式
-                            video.style.display = 'none';
-                            video.style.opacity = '';
-                            video.style.transition = '';
-                            video.classList.remove('playing');
-                            
-                            // 恢复容器高度和样式
-                            if (container) {
-                                container.style.height = '';
-                                container.style.minHeight = '';
-                                container.style.position = '';
-                            }
-                            
-                            // 恢复占位符样式
-                            placeholder.style.position = 'relative';
-                            placeholder.style.width = '100%';
-                            placeholder.style.height = 'auto';
-                            placeholder.style.opacity = '1';
-                            placeholder.style.pointerEvents = 'auto';
-                            placeholder.style.transition = '';
+                            debugLog('播放失败:', err, video.id);
+                            // 使用工具函数恢复状态
+                            resetVideoState(video, placeholder, container);
                             // 播放失败时，封面图会恢复显示，用户可再次点击重试
-                            // 不显示错误提示，让用户直接点击重试
                         });
                     }
                 };
@@ -994,114 +1014,23 @@
                 video.addEventListener('canplay', onCanPlay, { once: true });
             } else {
                 // 视频已加载，直接播放
-                console.log('视频已加载，直接播放:', video.id);
-                // 封面图将在淡入淡出过程中自动隐藏，无需移除加载提示
+                debugLog('视频已加载，直接播放:', video.id);
                 
-                // 优先从视频元素获取原始高度（视频的实际尺寸）
-                const container = placeholder.closest('.video-container');
-                const coverImg = placeholder.querySelector('.video-cover');
-                let targetHeight = 0;
+                // 使用工具函数计算高度
+                const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
                 
-                // 优先使用视频的原始高度，并根据容器宽度计算显示高度（保持宽高比）
-                if (video.videoHeight > 0 && video.videoWidth > 0) {
-                    const containerWidth = container ? (container.offsetWidth || container.clientWidth) : window.innerWidth;
-                    // 根据视频宽高比计算高度
-                    const aspectRatio = video.videoHeight / video.videoWidth;
-                    targetHeight = containerWidth * aspectRatio;
-                    console.log('视频已加载，使用视频原始尺寸:', video.videoWidth, 'x', video.videoHeight, '宽高比:', aspectRatio, '容器宽度:', containerWidth, '计算高度:', targetHeight);
-                }
-                
-                // 如果视频高度不可用，使用封面图片高度
-                if (!targetHeight || targetHeight === 0) {
-                    if (coverImg) {
-                        const imgHeight = coverImg.offsetHeight || coverImg.naturalHeight;
-                        if (imgHeight > 0) {
-                            targetHeight = imgHeight;
-                            console.log('使用封面图片高度:', targetHeight);
-                        }
-                    }
-                }
-                
-                // 如果仍然没有高度，使用占位符或容器高度
-                if (!targetHeight || targetHeight === 0) {
-                    targetHeight = placeholder.offsetHeight || (container ? container.offsetHeight : 300);
-                    console.log('使用占位符/容器高度:', targetHeight);
-                }
-                
-                console.log('最终高度:', targetHeight, '视频尺寸:', video.videoWidth + 'x' + video.videoHeight, '封面图片高度:', coverImg ? (coverImg.offsetHeight || coverImg.naturalHeight) : '无');
-                
-                // 先设置容器高度，防止塌陷（必须在改变占位符位置之前）
-                if (container && targetHeight > 0) {
-                    container.style.height = targetHeight + 'px';
-                    container.style.minHeight = targetHeight + 'px';
-                    container.style.position = 'relative'; // 确保容器是定位上下文
-                }
-                
-                // 先让占位符改为绝对定位，准备淡出
-                placeholder.style.position = 'absolute';
-                placeholder.style.top = '0';
-                placeholder.style.left = '0';
-                placeholder.style.width = '100%';
-                placeholder.style.height = targetHeight + 'px';
-                placeholder.style.pointerEvents = 'none';
-                placeholder.style.transition = 'opacity 0.5s ease-in-out';
-                
-                // 设置视频元素的高度和位置，初始透明度为0（准备淡入）
-                video.style.position = 'absolute';
-                video.style.top = '0';
-                video.style.left = '0';
-                video.style.width = '100%';
-                video.style.height = targetHeight + 'px';
-                video.style.display = 'block';
-                video.style.zIndex = '11';
-                video.style.opacity = '0';
-                video.style.transition = 'opacity 0.5s ease-in-out';
-                video.classList.add('playing');
-                
-                // 使用 requestAnimationFrame 确保样式已应用，然后触发交叉淡入淡出
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        // 同时触发占位符淡出和视频淡入
-                        placeholder.style.opacity = '0';
-                        video.style.opacity = '1';
-                    });
-                });
+                // 使用工具函数执行淡入淡出过渡
+                fadeInVideo(video, placeholder, container, targetHeight);
                 
                 const playPromise = video.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
-                        console.log('移动端视频播放成功:', video.id);
+                        debugLog('移动端视频播放成功:', video.id);
                     }).catch(err => {
-                        console.log('播放失败:', err, video.id);
-                        const container = placeholder.closest('.video-container');
-                        video.style.display = 'none';
-                        video.classList.remove('playing');
-                        
-                        // 恢复视频样式
-                        video.style.position = '';
-                        video.style.top = '';
-                        video.style.left = '';
-                        video.style.width = '';
-                        video.style.height = '';
-                        
-                        // 恢复容器高度和样式
-                        if (container) {
-                            container.style.height = '';
-                            container.style.minHeight = '';
-                            container.style.position = '';
-                        }
-                        
-                        // 恢复占位符样式
-                        placeholder.style.position = 'relative';
-                        placeholder.style.width = '100%';
-                        placeholder.style.height = 'auto';
-                        placeholder.style.opacity = '1';
-                        placeholder.style.pointerEvents = 'auto';
-                        placeholder.style.display = 'block';
-                        placeholder.style.transition = '';
-                        
+                        debugLog('播放失败:', err, video.id);
+                        // 使用工具函数恢复状态
+                        resetVideoState(video, placeholder, container);
                         // 播放失败时，封面图会恢复显示，用户可再次点击重试
-                        // 不显示错误提示，让用户直接点击重试
                     });
                 }
             }
@@ -1109,34 +1038,34 @@
         
         // 移动端视频自动播放设置（使用 Intersection Observer）- 已废弃，改为点击播放
         function setupMobileVideoAutoplay(videoId, videoSrc, placeholderId) {
-            console.log('设置移动端视频自动播放:', videoId, 'videoSrc:', videoSrc);
+            debugLog('设置移动端视频自动播放:', videoId, 'videoSrc:', videoSrc);
             const container = document.querySelector(`[data-video-id="${videoId}"]`);
             if (!container) {
-                console.error('找不到容器:', videoId);
+                debugError('找不到容器:', videoId);
                 return;
             }
             
             // 如果 videoSrc 为空，尝试从容器获取
             if (!videoSrc) {
                 videoSrc = container.getAttribute('data-video-src');
-                console.log('从容器获取 videoSrc:', videoSrc);
+                debugLog('从容器获取 videoSrc:', videoSrc);
             }
             
             const video = document.getElementById(videoId);
             const placeholder = document.getElementById(placeholderId);
             
             if (!video || !placeholder) {
-                console.error('找不到视频或占位符:', { videoId, placeholderId });
+                debugError('找不到视频或占位符:', { videoId, placeholderId });
                 return;
             }
             
             // 确保 videoSrc 有值
             if (!videoSrc) {
-                console.error('videoSrc 为空，无法设置自动播放:', videoId);
+                debugError('videoSrc 为空，无法设置自动播放:', videoId);
                 return;
             }
             
-            console.log('开始监听视频:', videoId, '最终 videoSrc:', videoSrc);
+            debugLog('开始监听视频:', videoId, '最终 videoSrc:', videoSrc);
             
             // 添加状态标记，避免重复操作
             let isProcessing = false;
@@ -1217,7 +1146,7 @@
         // 移动端视频自动播放函数（返回 Promise）
         function autoPlayMobileVideo(video, videoSrc, placeholder) {
             return new Promise((resolve, reject) => {
-                console.log('尝试自动播放视频:', video.id, '当前状态:', {
+                debugLog('尝试自动播放视频:', video.id, '当前状态:', {
                     paused: video.paused,
                     readyState: video.readyState,
                     src: video.src
@@ -1225,14 +1154,14 @@
                 
                 // 如果视频正在播放，直接返回成功
                 if (!video.paused && video.readyState >= 2) {
-                    console.log('视频已在播放，跳过');
+                    debugLog('视频已在播放，跳过');
                     resolve();
                     return;
                 }
                 
                 // 如果视频元素被标记为处理中，直接返回
                 if (video.dataset.processing === 'true') {
-                    console.log('视频正在处理中，跳过');
+                    debugLog('视频正在处理中，跳过');
                     resolve();
                     return;
                 }
@@ -1241,14 +1170,14 @@
             
             // 使用传入的 videoSrc 参数，确保有值
             if (!videoSrc) {
-                console.error('videoSrc 参数为空:', video.id);
+                debugError('videoSrc 参数为空:', video.id);
                 video.dataset.processing = 'false';
                 reject(new Error('videoSrc 参数为空'));
                 return;
             }
             
             // 直接检查 video.src 是否为空或与 videoSrc 不同，确保设置视频源
-            console.log('视频源检查:', {
+            debugLog('视频源检查:', {
                 videoId: video.id,
                 videoSrcParam: videoSrc,
                 videoSrcAttr: video.src,
@@ -1256,7 +1185,7 @@
             });
             
             if (!video.src || video.src !== videoSrc) {
-                console.log('设置视频源:', videoSrc);
+                debugLog('设置视频源:', videoSrc);
                 video.src = videoSrc;
                 video.load();
                 
@@ -1277,11 +1206,11 @@
                     const playPromise = video.play();
                     if (playPromise !== undefined) {
                         playPromise.then(() => {
-                            console.log('移动端视频自动播放成功:', video.id);
+                            debugLog('移动端视频自动播放成功:', video.id);
                             video.dataset.processing = 'false';
                             resolve();
                         }).catch(err => {
-                            console.log('自动播放失败:', err, video.id);
+                            debugLog('自动播放失败:', err, video.id);
                             // 如果自动播放失败，显示封面图，隐藏视频
                             video.style.display = 'none';
                             video.classList.remove('playing');
@@ -1310,11 +1239,11 @@
                 const playPromise = video.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
-                        console.log('移动端视频自动播放成功:', video.id);
+                        debugLog('移动端视频自动播放成功:', video.id);
                         video.dataset.processing = 'false';
                         resolve();
                     }).catch(err => {
-                        console.log('播放失败:', err, video.id);
+                        debugLog('播放失败:', err, video.id);
                         // 如果播放失败，恢复封面图显示，隐藏视频
                         video.style.display = 'none';
                         video.classList.remove('playing');
@@ -1348,7 +1277,7 @@
                         playButton.style.display = 'none';
                     }
                 }).catch(err => {
-                    console.log('播放失败:', err);
+                    debugLog('播放失败:', err);
                 });
             }
         }
@@ -1387,7 +1316,7 @@
                         playButton.style.display = 'none';
                     }
                 }).catch(err => {
-                    console.log('播放失败:', err);
+                    debugLog('播放失败:', err);
                     // 播放失败时显示封面图
                     if (placeholder) {
                         placeholder.style.display = 'flex';
@@ -1441,7 +1370,7 @@
         
         // 处理视频悬停（桌面端优化）
         function handleVideoHover(video) {
-            console.log('handleVideoHover 触发', {
+            debugLog('handleVideoHover 触发', {
                 paused: video.paused,
                 currentTime: video.currentTime,
                 readyState: video.readyState
@@ -1449,7 +1378,7 @@
             
             // 如果视频正在播放，不做任何操作
             if (!video.paused && video.currentTime > 0.5) {
-                console.log('视频正在播放，跳过');
+                debugLog('视频正在播放，跳过');
                 return;
             }
             
@@ -1462,7 +1391,7 @@
                 placeholder.style.setProperty('display', 'none', 'important');
                 placeholder.style.pointerEvents = 'none';
                 placeholder.style.zIndex = '1'; // 降低占位符层级
-                console.log('占位符已隐藏');
+                debugLog('占位符已隐藏');
             }
             
             // 确保视频元素可见且在上层

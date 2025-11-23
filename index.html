@@ -284,9 +284,34 @@
             color: white;
             font-size: 14px;
             z-index: 12;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 8px 16px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
             border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .video-loading::before {
+            content: '';
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .video-container video.ready {
+            opacity: 1;
+        }
+        
+        .video-container video.loading {
+            opacity: 0.7;
         }
 
         /* 视频播放时隐藏占位符和按钮 */
@@ -462,15 +487,19 @@
             const video = document.getElementById(videoId);
             const placeholder = placeholderId ? document.getElementById(placeholderId) : null;
             
-            if (!video) return;
+            if (!video) {
+                console.error('视频元素不存在:', videoId);
+                return;
+            }
             
             // 如果视频正在加载或播放，直接返回
-            if (video.classList.contains('loading') || !video.paused) {
+            if (video.classList.contains('loading') || (!video.paused && video.readyState >= 2)) {
                 return;
             }
             
             // 如果视频还没有加载，先加载视频源
-            if (!video.src || video.src !== videoSrc) {
+            const currentSrc = video.src || video.getAttribute('src') || '';
+            if (!currentSrc || currentSrc !== videoSrc) {
                 // 标记为加载中
                 video.classList.add('loading');
                 
@@ -482,19 +511,24 @@
                         loadingDiv.className = 'video-loading';
                         loadingDiv.textContent = '加载中...';
                         placeholder.appendChild(loadingDiv);
+                    } else {
+                        loadingDiv.textContent = '加载中...';
+                        loadingDiv.style.display = 'block';
                     }
                     // 隐藏播放按钮
                     const playBtn = placeholder.querySelector('.play-button-large');
                     if (playBtn) {
                         playBtn.style.display = 'none';
                     }
+                    placeholder.style.display = 'flex';
                 }
                 
-                video.src = videoSrc;
+                // 设置视频源并加载
+                video.setAttribute('src', videoSrc);
                 video.load();
                 
-                // 等待视频加载完成
-                const onLoadedData = function() {
+                // 等待视频可以播放（canplay 比 loadeddata 更好，确保可以播放）
+                const onCanPlay = function() {
                     video.classList.remove('loading');
                     video.classList.add('playing');
                     
@@ -508,33 +542,62 @@
                     video.style.display = 'block';
                     
                     // 开始播放
-                    video.play().catch(err => {
-                        console.log('播放失败:', err);
-                        if (placeholder) {
-                            placeholder.style.display = 'flex';
-                            const playBtn = placeholder.querySelector('.play-button-large');
-                            if (playBtn) {
-                                playBtn.style.display = 'flex';
+                    const playPromise = video.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            console.log('视频播放成功');
+                        }).catch(err => {
+                            console.log('播放失败:', err);
+                            // 如果自动播放失败，显示播放按钮
+                            if (placeholder) {
+                                placeholder.style.display = 'flex';
+                                const playBtn = placeholder.querySelector('.play-button-large');
+                                if (playBtn) {
+                                    playBtn.style.display = 'flex';
+                                }
                             }
-                        }
-                    });
+                        });
+                    }
                 };
                 
+                video.addEventListener('canplay', onCanPlay, { once: true });
+                
+                // 也监听 loadeddata 作为备选
+                const onLoadedData = function() {
+                    if (video.readyState >= 2 && !video.classList.contains('playing')) {
+                        // 如果 canplay 还没触发，等待一下
+                        setTimeout(() => {
+                            if (!video.classList.contains('playing') && video.readyState >= 2) {
+                                onCanPlay();
+                            }
+                        }, 100);
+                    }
+                };
                 video.addEventListener('loadeddata', onLoadedData, { once: true });
                 
                 // 错误处理
-                const onError = function() {
+                const onError = function(e) {
+                    console.error('视频加载错误:', e, videoSrc);
                     video.classList.remove('loading');
                     if (placeholder) {
                         const loadingDiv = placeholder.querySelector('.video-loading');
                         if (loadingDiv) {
                             loadingDiv.textContent = '加载失败，点击重试';
+                        } else {
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'video-loading';
+                            errorDiv.textContent = '加载失败，点击重试';
+                            placeholder.appendChild(errorDiv);
                         }
                         const playBtn = placeholder.querySelector('.play-button-large');
                         if (playBtn) {
                             playBtn.style.display = 'flex';
                         }
+                        placeholder.style.display = 'flex';
                     }
+                    // 清除错误的 src
+                    video.removeAttribute('src');
+                    video.load();
                 };
                 
                 video.addEventListener('error', onError, { once: true });
@@ -545,9 +608,15 @@
                 }
                 video.style.display = 'block';
                 video.classList.add('playing');
-                video.play().catch(err => {
-                    console.log('播放失败:', err);
-                });
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(err => {
+                        console.log('播放失败:', err);
+                        if (placeholder) {
+                            placeholder.style.display = 'flex';
+                        }
+                    });
+                }
             }
         }
         
@@ -574,8 +643,15 @@
                 event.stopPropagation();
             }
             
-            // 如果是移动端且视频未加载，不处理点击
+            // 如果是移动端且视频未加载，尝试加载
             if (isMobileDevice() && (!video.src || video.src === '')) {
+                const container = video.closest('.video-container');
+                const placeholder = container ? container.querySelector('.video-placeholder') : null;
+                const placeholderId = placeholder ? placeholder.id : null;
+                const videoSrc = container ? container.getAttribute('data-video-src') : null;
+                if (videoSrc && placeholderId) {
+                    loadAndPlayVideo(video.id, videoSrc, placeholderId);
+                }
                 return;
             }
             
@@ -615,7 +691,51 @@
                     event.preventDefault();
                     event.stopPropagation();
                 }
-                handleVideoClick(video);
+                // 如果是移动端且视频未加载，先加载再播放
+                if (isMobileDevice() && (!video.src || video.src === '')) {
+                    const container = video.closest('.video-container');
+                    const placeholder = container ? container.querySelector('.video-placeholder') : null;
+                    const placeholderId = placeholder ? placeholder.id : null;
+                    const videoSrc = container ? container.getAttribute('data-video-src') : null;
+                    if (videoSrc && placeholderId) {
+                        loadAndPlayVideo(video.id, videoSrc, placeholderId);
+                    }
+                } else {
+                    handleVideoClick(video);
+                }
+            }
+        }
+        
+        // 处理视频悬停（桌面端优化）
+        function handleVideoHover(video) {
+            // 确保视频已加载足够数据再播放
+            if (video.readyState >= 2) {
+                video.play().catch(err => {
+                    console.log('自动播放失败:', err);
+                });
+            } else {
+                // 如果还没加载好，等待加载
+                const onCanPlay = () => {
+                    video.play().catch(err => {
+                        console.log('自动播放失败:', err);
+                    });
+                    video.removeEventListener('canplay', onCanPlay);
+                };
+                video.addEventListener('canplay', onCanPlay, { once: true });
+            }
+        }
+        
+        // 处理视频悬停离开（桌面端）
+        function handleVideoHoverOut(video) {
+            video.pause();
+            video.currentTime = 0;
+        }
+        
+        // 处理视频可以播放（优化缓冲）
+        function handleVideoCanPlay(video) {
+            // 确保视频缓冲足够再允许播放
+            if (video.buffered.length > 0 && video.buffered.end(0) > 1) {
+                video.classList.add('ready');
             }
         }
 
@@ -877,16 +997,15 @@
                 if (isMobile) {
                     // 移动端：使用占位符，点击后加载
                     mediaHTML = `
-                        <div class="media-box video-container">
+                        <div class="media-box video-container" data-video-src="${videoSrc}">
                             <span class="badge">VIDEO</span>
-                            <div class="video-placeholder" id="${placeholderId}">
-                                <div class="play-button-large" onclick="loadAndPlayVideo('${videoId}', '${videoSrc}', '${placeholderId}'); event.stopPropagation();">
+                            <div class="video-placeholder" id="${placeholderId}" onclick="loadAndPlayVideo('${videoId}', '${videoSrc}', '${placeholderId}'); event.stopPropagation();">
+                                <div class="play-button-large">
                                     ▶
                                 </div>
                             </div>
                             <video 
                                 id="${videoId}"
-                                src=""
                                 muted 
                                 loop 
                                 playsinline
@@ -895,6 +1014,8 @@
                                 onclick="handleVideoClick(this, event);"
                                 ontouchstart="handleVideoTouchStart(this);"
                                 ontouchend="handleVideoTouchEnd(this, event);"
+                                webkit-playsinline="true"
+                                x5-playsinline="true"
                             ></video>
                             <div class="play-button" onclick="loadAndPlayVideo('${videoId}', '${videoSrc}', '${placeholderId}'); if(event){event.stopPropagation();}" style="display: none;">
                                 ▶
@@ -902,7 +1023,7 @@
                         </div>
                     `;
                 } else {
-                    // 桌面端：正常加载，支持悬停播放
+                    // 桌面端：优化预加载，减少卡顿
                     mediaHTML = `
                         <div class="media-box video-container">
                             <span class="badge">VIDEO</span>
@@ -912,10 +1033,11 @@
                                 muted 
                                 loop 
                                 playsinline
-                                preload="metadata"
-                                onmouseover="this.play();" 
-                                onmouseout="this.pause(); this.currentTime=0;"
+                                preload="auto"
+                                onmouseover="handleVideoHover(this);" 
+                                onmouseout="handleVideoHoverOut(this);"
                                 onclick="handleVideoClick(this, event);"
+                                oncanplay="handleVideoCanPlay(this);"
                             ></video>
                             <div class="play-button" style="display: none;">
                                 ▶

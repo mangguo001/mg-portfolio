@@ -33,7 +33,7 @@
             height: 75vh;       /* 高度占屏幕 75% */
             min-height: 500px;
             margin-bottom: 30px; /* 从 50px 减少到 30px，让渐变更接近菜单栏 */
-            overflow: visible;   /* 改为 visible，让渐变可以延伸到外面 */
+            overflow: hidden;   /* 改为 hidden，防止输入框超出边界 */
             display: flex;
             align-items: flex-end; /* 内容沉底 */
             color: white;       /* 强制文字变白 */
@@ -119,6 +119,57 @@
             background: rgba(59, 130, 246, 0.2);
             border-color: rgba(59, 130, 246, 0.5);
             color: rgb(191, 219, 254);
+        }
+
+        /* 顶部栏输入框样式 */
+        .header-text-input {
+            position: absolute;
+            top: 40px;  /* 与标题 padding 保持一致 */
+            right: 40px;  /* 与标题 padding 保持一致 */
+            z-index: 10;
+            width: 200px;
+            max-width: calc(100% - 80px); /* 左右各 40px，总共 80px */
+        }
+        
+        .header-text-input input {
+            width: 100%;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-family: var(--font-mono);
+            text-align: center;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+        
+        .header-text-input input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: none;
+        }
+        
+        .header-text-input input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+        
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .header-text-input {
+                top: 40px;  /* 与标题 padding 保持一致 */
+                right: 40px;  /* 与标题 padding 保持一致 */
+                width: 150px;
+                max-width: calc(100% - 80px); /* 移动端左右各 40px，总共 80px */
+            }
+            
+            .header-text-input input {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
         }
 
         /* 2. 遮罩层 (中间层) - 让文字更清晰 */
@@ -661,6 +712,17 @@
         <!-- 黑色遮罩 -->
         <div class="overlay"></div>
         
+        <!-- 顶部输入框 - 更改交互文字 -->
+        <div class="header-text-input">
+            <input 
+                type="text" 
+                id="header-text-input" 
+                value="MG-MANGO" 
+                maxlength="15" 
+                placeholder="输入文字"
+            />
+        </div>
+        
         <!-- 控制面板（可选，右上角） -->
         <div class="starry-controls" style="display: none;">
             <input type="text" id="starry-text" value="MG-MANGO" maxlength="10" placeholder="输入文字" />
@@ -1067,13 +1129,31 @@
             
             // 控制面板事件处理
             const textInput = document.getElementById('starry-text');
+            const headerTextInput = document.getElementById('header-text-input');
             const toggleConstellations = document.getElementById('toggle-constellations');
             const toggleDensity = document.getElementById('toggle-density');
             
+            // 顶部输入框事件处理
+            if (headerTextInput) {
+                headerTextInput.addEventListener('input', (e) => {
+                    text = e.target.value.toUpperCase() || 'MG-MANGO';
+                    updateParticles();
+                    // 同步到控制面板输入框（如果存在）
+                    if (textInput) {
+                        textInput.value = e.target.value.toUpperCase();
+                    }
+                });
+            }
+            
+            // 原有控制面板输入框（如果显示的话）
             if (textInput) {
                 textInput.addEventListener('input', (e) => {
                     text = e.target.value.toUpperCase() || 'MG-MANGO';
                     updateParticles();
+                    // 同步到顶部输入框
+                    if (headerTextInput) {
+                        headerTextInput.value = e.target.value.toUpperCase();
+                    }
                 });
             }
             

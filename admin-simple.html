@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>简单管理后台 - MG Portfolio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #333;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #333;
+        }
+        
+        .work-item {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .work-item.expanded {
+            border-color: #333;
+        }
+        
+        .work-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .work-title {
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .work-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: 2px solid #333;
+            background: white;
+            color: #333;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .btn:hover {
+            background: #333;
+            color: white;
+        }
+        
+        .btn-danger {
+            border-color: #ff3333;
+            color: #ff3333;
+        }
+        
+        .btn-danger:hover {
+            background: #ff3333;
+            color: white;
+        }
+        
+        .btn-primary {
+            background: #333;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #555;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #333;
+        }
+        
+        .work-form {
+            display: none;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .work-item.expanded .work-form {
+            display: block;
+        }
+        
+        .add-work-btn {
+            margin-bottom: 20px;
+        }
+        
+        .export-section {
+            margin-top: 40px;
+            padding: 20px;
+            background: #e8f4f8;
+            border-radius: 4px;
+        }
+        
+        .export-section textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .info-box {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .info-box p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 MG Portfolio 简单管理后台</h1>
+        
+        <div class="info-box">
+            <p><strong>⚠️ 使用说明：</strong></p>
+            <p>1. 在下方编辑作品数据</p>
+            <p>2. 点击 "导出 JSON" 按钮复制 JSON 数据</p>
+            <p>3. 手动更新 <code>_data/works.json</code> 文件</p>
+            <p>4. 使用 Git 提交并推送到 GitHub</p>
+            <p>5. 等待 GitHub Pages 自动更新（1-2分钟）</p>
+        </div>
+        
+        <div class="section">
+            <h2 class="section-title">作品管理</h2>
+            <button class="btn btn-primary add-work-btn" onclick="addNewWork()">+ 添加新作品</button>
+            <div id="works-list"></div>
+        </div>
+        
+        <div class="export-section">
+            <h2 class="section-title">导出数据</h2>
+            <button class="btn btn-primary" onclick="exportJSON()">导出 JSON</button>
+            <button class="btn" onclick="importJSON()">导入 JSON</button>
+            <textarea id="json-output" readonly placeholder="JSON 数据将显示在这里..."></textarea>
+            <p style="margin-top: 10px; font-size: 12px; color: #666;">
+                复制上面的 JSON 数据，替换 <code>_data/works.json</code> 文件的内容
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        // 加载作品数据
+        let works = [];
+        
+        async function loadWorks() {
+            try {
+                const response = await fetch('./_data/works.json');
+                if (!response.ok) throw new Error('无法加载数据');
+                const data = await response.json();
+                works = data.works || [];
+                renderWorks();
+            } catch (error) {
+                console.error('加载失败:', error);
+                works = [];
+                renderWorks();
+            }
+        }
+        
+        // 渲染作品列表
+        function renderWorks() {
+            const list = document.getElementById('works-list');
+            list.innerHTML = '';
+            
+            works.forEach((work, index) => {
+                const item = document.createElement('div');
+                item.className = 'work-item';
+                item.innerHTML = `
+                    <div class="work-header" onclick="toggleWork(${index})">
+                        <span class="work-title">${work.title || '未命名作品'}</span>
+                        <div class="work-actions" onclick="event.stopPropagation();">
+                            <button class="btn" onclick="toggleWork(${index})">编辑</button>
+                            <button class="btn btn-danger" onclick="deleteWork(${index})">删除</button>
+                        </div>
+                    </div>
+                    <div class="work-form">
+                        <div class="form-group">
+                            <label>ID</label>
+                            <input type="number" id="id-${index}" value="${work.id || index + 1}">
+                        </div>
+                        <div class="form-group">
+                            <label>标题</label>
+                            <input type="text" id="title-${index}" value="${work.title || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>描述</label>
+                            <input type="text" id="desc-${index}" value="${work.desc || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>类型</label>
+                            <select id="type-${index}">
+                                <option value="video" ${work.type === 'video' ? 'selected' : ''}>视频</option>
+                                <option value="image" ${work.type === 'image' ? 'selected' : ''}>图片</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>文件名</label>
+                            <input type="text" id="file-${index}" value="${work.file || ''}" placeholder="assets文件夹中的文件名">
+                        </div>
+                        <div class="form-group">
+                            <label>分类</label>
+                            <select id="category-${index}">
+                                <option value="动画" ${work.category === '动画' ? 'selected' : ''}>动画</option>
+                                <option value="绘画" ${work.category === '绘画' ? 'selected' : ''}>绘画</option>
+                                <option value="交互" ${work.category === '交互' ? 'selected' : ''}>交互</option>
+                                <option value="设计" ${work.category === '设计' ? 'selected' : ''}>设计</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>链接（可选）</label>
+                            <input type="text" id="link-${index}" value="${work.link || ''}">
+                        </div>
+                        <div class="form-group">
+                            <label>排序</label>
+                            <input type="number" id="order-${index}" value="${work.order || index + 1}">
+                        </div>
+                        <button class="btn btn-primary" onclick="saveWork(${index})">保存</button>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+        
+        // 切换作品编辑状态
+        function toggleWork(index) {
+            const items = document.querySelectorAll('.work-item');
+            items.forEach((item, i) => {
+                if (i === index) {
+                    item.classList.toggle('expanded');
+                } else {
+                    item.classList.remove('expanded');
+                }
+            });
+        }
+        
+        // 保存作品
+        function saveWork(index) {
+            works[index] = {
+                id: parseInt(document.getElementById(`id-${index}`).value) || index + 1,
+                title: document.getElementById(`title-${index}`).value,
+                desc: document.getElementById(`desc-${index}`).value,
+                type: document.getElementById(`type-${index}`).value,
+                file: document.getElementById(`file-${index}`).value,
+                category: document.getElementById(`category-${index}`).value,
+                link: document.getElementById(`link-${index}`).value,
+                order: parseInt(document.getElementById(`order-${index}`).value) || index + 1
+            };
+            // 按order排序
+            works.sort((a, b) => (a.order || 0) - (b.order || 0));
+            renderWorks();
+            exportJSON();
+        }
+        
+        // 删除作品
+        function deleteWork(index) {
+            if (confirm('确定要删除这个作品吗？')) {
+                works.splice(index, 1);
+                renderWorks();
+                exportJSON();
+            }
+        }
+        
+        // 添加新作品
+        function addNewWork() {
+            const newWork = {
+                id: works.length + 1,
+                title: '新作品',
+                desc: '作品描述',
+                type: 'video',
+                file: '',
+                category: '动画',
+                link: '',
+                order: works.length + 1
+            };
+            works.push(newWork);
+            renderWorks();
+            // 展开最后一个
+            setTimeout(() => {
+                const items = document.querySelectorAll('.work-item');
+                if (items.length > 0) {
+                    items[items.length - 1].classList.add('expanded');
+                }
+            }, 100);
+            exportJSON();
+        }
+        
+        // 导出JSON
+        function exportJSON() {
+            const output = {
+                works: works
+            };
+            document.getElementById('json-output').value = JSON.stringify(output, null, 2);
+        }
+        
+        // 导入JSON
+        function importJSON() {
+            const json = prompt('粘贴 JSON 数据：');
+            if (json) {
+                try {
+                    const data = JSON.parse(json);
+                    works = data.works || [];
+                    renderWorks();
+                    exportJSON();
+                    alert('导入成功！');
+                } catch (error) {
+                    alert('JSON 格式错误：' + error.message);
+                }
+            }
+        }
+        
+        // 页面加载时加载数据
+        loadWorks();
+    </script>
+</body>
+</html>
+

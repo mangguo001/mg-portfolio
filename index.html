@@ -207,6 +207,21 @@
             background: #ddd; /* 加载前的占位色 */
             overflow: hidden;
         }
+        
+        /* 桌面端：保持自适应高度，但设置最小高度防止塌陷 */
+        @media (min-width: 769px) {
+            .media-box {
+                min-height: 200px; /* 最小高度，但不强制比例 */
+            }
+        }
+        
+        /* 移动端优化：确保容器有合适的高度和固定比例 */
+        @media (max-width: 768px) {
+            .media-box {
+                min-height: 250px;
+                aspect-ratio: 16 / 9; /* 移动端固定比例，确保显示正常 */
+            }
+        }
 
         /* 视频容器特殊处理 */
         .video-container {
@@ -264,6 +279,13 @@
             height: 100%;
             object-fit: cover;
             z-index: 1;
+            display: block; /* 确保封面图显示 */
+        }
+        
+        /* 封面图加载失败时的处理 */
+        .video-cover[src=""],
+        .video-cover:not([src]) {
+            display: none;
         }
         
         .video-placeholder .play-button-large {
@@ -350,12 +372,39 @@
         }
 
         /* 确保图片视频铺满 */
-        img, video {
+        .media-box img,
+        .media-box video {
             width: 100%;
             display: block;
             object-fit: cover;
             filter: grayscale(100%); /* 默认黑白 */
             transition: filter 0.3s;
+        }
+        
+        /* 桌面端：图片和视频保持自然高度 */
+        @media (min-width: 769px) {
+            .media-box img,
+            .media-box video {
+                height: auto; /* 桌面端自适应高度 */
+            }
+        }
+        
+        /* 移动端：图片和视频填满容器 */
+        @media (max-width: 768px) {
+            .media-box img,
+            .media-box video {
+                height: 100%;
+            }
+            
+            /* 移动端：对于直接放在 .media-box 内的图片和视频，使用绝对定位 */
+            .media-box > img:not(.video-cover),
+            .media-box > video {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+            }
         }
 
         /* 鼠标悬停变彩色 */
@@ -441,6 +490,44 @@
             
             .video-placeholder {
                 display: none;
+            }
+        }
+        
+        /* 移动端：确保占位符和封面图显示 */
+        @media (max-width: 768px) {
+            .video-placeholder {
+                display: flex !important;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                z-index: 10;
+                background: #222; /* 确保有背景色 */
+            }
+            
+            .video-container video {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            }
+            
+            .video-cover {
+                display: block !important;
+                width: 100% !important;
+                height: 100% !important;
+                object-fit: cover;
+            }
+            
+            /* 确保移动端图片也能正确显示 */
+            .media-box img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
             }
         }
         
@@ -1035,20 +1122,52 @@
             const baseName = videoFile.replace(/\.[^/.]+$/, '');
             const assetPath = './assets/';
             
+            console.log('封面图加载失败，尝试其他格式:', src);
+            
             // 如果当前是 _cover.jpg，尝试 .jpg
             if (src.includes('_cover.jpg')) {
                 img.src = assetPath + baseName + '.jpg';
+                img.onerror = function() {
+                    // .jpg 也失败了，尝试 .png
+                    this.src = assetPath + baseName + '.png';
+                    this.onerror = function() {
+                        // 所有格式都失败，隐藏图片，显示占位背景
+                        console.log('所有封面图格式都加载失败');
+                        this.style.display = 'none';
+                        // 确保占位符仍然显示
+                        const placeholder = this.closest('.video-placeholder');
+                        if (placeholder) {
+                            placeholder.style.display = 'flex';
+                            placeholder.style.background = '#222';
+                        }
+                    };
+                };
                 return;
             }
             
             // 如果当前是 .jpg，尝试 .png
             if (src.includes('.jpg')) {
                 img.src = assetPath + baseName + '.png';
+                img.onerror = function() {
+                    // .png 也失败了
+                    console.log('所有封面图格式都加载失败');
+                    this.style.display = 'none';
+                    const placeholder = this.closest('.video-placeholder');
+                    if (placeholder) {
+                        placeholder.style.display = 'flex';
+                        placeholder.style.background = '#222';
+                    }
+                };
                 return;
             }
             
             // 如果都失败了，隐藏图片，显示默认背景
             img.style.display = 'none';
+            const placeholder = img.closest('.video-placeholder');
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+                placeholder.style.background = '#222';
+            }
         }
 
         // ========================================================

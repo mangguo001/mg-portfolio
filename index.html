@@ -415,26 +415,22 @@
             }
             
             /* 封面图占位符 - 相对定位，让容器根据封面图高度自动调整 */
+            /* 封面图占位符 - 先用相对定位撑开容器，保持原始比例 */
             .video-placeholder {
-                position: relative !important;
+                position: relative;
                 width: 100%;
-                display: block !important;
-                background: #222; /* 深色背景作为占位，防止封面图加载前显示灰色 */
-                min-height: 200px; /* 确保有最小高度 */
-            }
-            
-            .video-placeholder {
-                cursor: pointer; /* 添加手型光标，提示可点击 */
+                display: block;
+                background: #222;
+                cursor: pointer;
             }
             
             .video-placeholder .video-cover {
-                position: relative !important; /* 强制覆盖全局的绝对定位 */
-                width: 100% !important;
-                height: auto !important;
-                display: block !important;
+                position: relative;
+                width: 100%;
+                height: auto;
+                display: block;
                 object-fit: cover;
-                max-width: 100%;
-                transition: filter 0.3s; /* 添加过渡效果 */
+                transition: filter 0.3s, opacity 0.3s;
             }
             
             /* 点击后封面图变为彩色 */
@@ -443,32 +439,43 @@
                 filter: grayscale(0%) !important;
             }
             
-            /* 确保视频播放时是彩色的 */
-            .video-container video.playing {
+            /* 视频容器 */
+            .video-container {
+                position: relative;
+            }
+            
+            /* 视频元素 - 绝对定位，覆盖在占位符位置 */
+            .video-container video {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                display: none;
+                object-fit: cover;
+                z-index: 11;
                 filter: grayscale(0%) !important;
             }
             
-            /* 视频元素 - 保持原始比例，移除灰度滤镜 */
-            .video-container video {
-                position: relative;
-                width: 100%;
-                height: auto;
-                display: none;
-                object-fit: contain;
-                filter: grayscale(0%) !important; /* 移动端视频保持彩色 */
-            }
-            
-            /* 当视频播放时，显示视频，隐藏占位符，保持彩色 */
+            /* 视频播放时显示视频 */
             .video-container video.playing,
             .video-container video[style*="display: block"] {
                 display: block !important;
-                position: relative;
-                filter: grayscale(0%) !important; /* 播放时保持彩色 */
+                z-index: 11 !important;
             }
             
+            /* 当视频播放时，占位符改为绝对定位并淡出（实现平滑过渡） */
             .video-container video.playing ~ .video-placeholder,
             .video-container video[style*="display: block"] ~ .video-placeholder {
-                display: none !important;
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                opacity: 0;
+                pointer-events: none;
+                z-index: 10;
+                transition: opacity 0.3s;
             }
             
             /* 确保移动端图片也能正确显示 */
@@ -800,6 +807,7 @@
         
         // 移动端视频点击播放函数
         function handleMobileVideoClick(videoId, videoSrc, placeholderId) {
+            console.log('点击播放视频:', videoId, videoSrc);
             const video = document.getElementById(videoId);
             const placeholder = document.getElementById(placeholderId);
             
@@ -810,28 +818,127 @@
             
             // 如果视频正在播放，不做任何操作
             if (!video.paused && video.readyState >= 2) {
+                console.log('视频已在播放，跳过');
                 return;
             }
             
             // 添加点击标记，让封面图变为彩色
             placeholder.classList.add('clicked');
             
+            // 显示加载提示
+            let loadingDiv = placeholder.querySelector('.video-loading');
+            if (!loadingDiv) {
+                loadingDiv = document.createElement('div');
+                loadingDiv.className = 'video-loading';
+                loadingDiv.textContent = '加载中...';
+                loadingDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 5px; z-index: 100; font-size: 14px;';
+                placeholder.appendChild(loadingDiv);
+            } else {
+                loadingDiv.style.display = 'block';
+                loadingDiv.textContent = '加载中...';
+            }
+            
             // 设置视频源并加载
             if (!video.src || video.src !== videoSrc) {
+                console.log('设置视频源:', videoSrc);
                 video.src = videoSrc;
                 video.load();
                 
+                // 添加错误处理
+                const onError = function(e) {
+                    console.error('视频加载错误:', e, videoSrc);
+                    video.removeEventListener('error', onError);
+                    if (loadingDiv) {
+                        loadingDiv.textContent = '加载失败，点击重试';
+                        loadingDiv.style.display = 'block';
+                    }
+                    // 确保容器状态正确
+                    const container = placeholder.closest('.video-container');
+                    if (container) {
+                        container.style.height = '';
+                        container.style.minHeight = '';
+                    }
+                    // 保持封面图显示
+                    placeholder.style.position = 'relative';
+                    placeholder.style.width = '100%';
+                    placeholder.style.height = 'auto';
+                    placeholder.style.opacity = '1';
+                    placeholder.style.pointerEvents = 'auto';
+                    placeholder.style.display = 'block';
+                };
+                
+                video.addEventListener('error', onError, { once: true });
+                
                 // 等待视频可以播放
                 const onCanPlay = function() {
+                    console.log('视频可以播放:', video.id);
                     video.removeEventListener('canplay', onCanPlay);
+                    video.removeEventListener('error', onError);
                     
-                    // 隐藏封面图
-                    placeholder.style.display = 'none';
+                    // 移除加载提示
+                    if (loadingDiv) {
+                        loadingDiv.remove();
+                    }
                     
-                    // 显示视频并添加playing类，移除灰度滤镜
+                    // 优先从视频元素获取原始高度（视频的实际尺寸）
+                    const container = placeholder.closest('.video-container');
+                    const coverImg = placeholder.querySelector('.video-cover');
+                    let targetHeight = 0;
+                    
+                    // 优先使用视频的原始高度，并根据容器宽度计算显示高度（保持宽高比）
+                    if (video.videoHeight > 0 && video.videoWidth > 0) {
+                        const containerWidth = container ? (container.offsetWidth || container.clientWidth) : window.innerWidth;
+                        // 根据视频宽高比计算高度
+                        const aspectRatio = video.videoHeight / video.videoWidth;
+                        targetHeight = containerWidth * aspectRatio;
+                        console.log('使用视频原始尺寸:', video.videoWidth, 'x', video.videoHeight, '宽高比:', aspectRatio, '容器宽度:', containerWidth, '计算高度:', targetHeight);
+                    }
+                    
+                    // 如果视频高度不可用，使用封面图片高度
+                    if (!targetHeight || targetHeight === 0) {
+                        if (coverImg) {
+                            const imgHeight = coverImg.offsetHeight || coverImg.naturalHeight;
+                            if (imgHeight > 0) {
+                                targetHeight = imgHeight;
+                                console.log('使用封面图片高度:', targetHeight);
+                            }
+                        }
+                    }
+                    
+                    // 如果仍然没有高度，使用占位符或容器高度
+                    if (!targetHeight || targetHeight === 0) {
+                        targetHeight = placeholder.offsetHeight || (container ? container.offsetHeight : 300);
+                        console.log('使用占位符/容器高度:', targetHeight);
+                    }
+                    
+                    console.log('最终高度:', targetHeight, '视频尺寸:', video.videoWidth + 'x' + video.videoHeight, '封面图片高度:', coverImg ? (coverImg.offsetHeight || coverImg.naturalHeight) : '无');
+                    
+                    // 先设置容器高度，防止塌陷（必须在改变占位符位置之前）
+                    if (container && targetHeight > 0) {
+                        container.style.height = targetHeight + 'px';
+                        container.style.minHeight = targetHeight + 'px';
+                        container.style.position = 'relative'; // 确保容器是定位上下文
+                    }
+                    
+                    // 先让占位符改为绝对定位，然后淡出（实现平滑过渡）
+                    placeholder.style.position = 'absolute';
+                    placeholder.style.top = '0';
+                    placeholder.style.left = '0';
+                    placeholder.style.width = '100%';
+                    placeholder.style.height = targetHeight + 'px';
+                    placeholder.style.opacity = '0';
+                    placeholder.style.pointerEvents = 'none';
+                    placeholder.style.transition = 'opacity 0.3s';
+                    
+                    // 设置视频元素的高度和位置
+                    video.style.position = 'absolute';
+                    video.style.top = '0';
+                    video.style.left = '0';
+                    video.style.width = '100%';
+                    video.style.height = targetHeight + 'px';
                     video.style.display = 'block';
+                    video.style.zIndex = '11';
                     video.classList.add('playing');
-                    video.style.filter = 'grayscale(0%)';
                     
                     // 开始播放
                     const playPromise = video.play();
@@ -840,10 +947,27 @@
                             console.log('移动端视频播放成功:', video.id);
                         }).catch(err => {
                             console.log('播放失败:', err, video.id);
-                            // 如果播放失败，显示封面图，隐藏视频
+                            // 如果播放失败，恢复封面图显示，隐藏视频
+                            const container = placeholder.closest('.video-container');
                             video.style.display = 'none';
                             video.classList.remove('playing');
-                            placeholder.style.display = 'block';
+                            
+                            // 恢复容器高度
+                            if (container) {
+                                container.style.height = '';
+                                container.style.minHeight = '';
+                            }
+                            
+                            placeholder.style.position = 'relative';
+                            placeholder.style.width = '100%';
+                            placeholder.style.height = 'auto';
+                            placeholder.style.opacity = '1';
+                            placeholder.style.pointerEvents = 'auto';
+                            if (loadingDiv) {
+                                loadingDiv.textContent = '播放失败，点击重试';
+                                loadingDiv.style.display = 'block';
+                                placeholder.appendChild(loadingDiv);
+                            }
                         });
                     }
                 };
@@ -851,10 +975,70 @@
                 video.addEventListener('canplay', onCanPlay, { once: true });
             } else {
                 // 视频已加载，直接播放
-                placeholder.style.display = 'none';
+                console.log('视频已加载，直接播放:', video.id);
+                if (loadingDiv) {
+                    loadingDiv.remove();
+                }
+                
+                // 优先从视频元素获取原始高度（视频的实际尺寸）
+                const container = placeholder.closest('.video-container');
+                const coverImg = placeholder.querySelector('.video-cover');
+                let targetHeight = 0;
+                
+                // 优先使用视频的原始高度，并根据容器宽度计算显示高度（保持宽高比）
+                if (video.videoHeight > 0 && video.videoWidth > 0) {
+                    const containerWidth = container ? (container.offsetWidth || container.clientWidth) : window.innerWidth;
+                    // 根据视频宽高比计算高度
+                    const aspectRatio = video.videoHeight / video.videoWidth;
+                    targetHeight = containerWidth * aspectRatio;
+                    console.log('视频已加载，使用视频原始尺寸:', video.videoWidth, 'x', video.videoHeight, '宽高比:', aspectRatio, '容器宽度:', containerWidth, '计算高度:', targetHeight);
+                }
+                
+                // 如果视频高度不可用，使用封面图片高度
+                if (!targetHeight || targetHeight === 0) {
+                    if (coverImg) {
+                        const imgHeight = coverImg.offsetHeight || coverImg.naturalHeight;
+                        if (imgHeight > 0) {
+                            targetHeight = imgHeight;
+                            console.log('使用封面图片高度:', targetHeight);
+                        }
+                    }
+                }
+                
+                // 如果仍然没有高度，使用占位符或容器高度
+                if (!targetHeight || targetHeight === 0) {
+                    targetHeight = placeholder.offsetHeight || (container ? container.offsetHeight : 300);
+                    console.log('使用占位符/容器高度:', targetHeight);
+                }
+                
+                console.log('最终高度:', targetHeight, '视频尺寸:', video.videoWidth + 'x' + video.videoHeight, '封面图片高度:', coverImg ? (coverImg.offsetHeight || coverImg.naturalHeight) : '无');
+                
+                // 先设置容器高度，防止塌陷（必须在改变占位符位置之前）
+                if (container && targetHeight > 0) {
+                    container.style.height = targetHeight + 'px';
+                    container.style.minHeight = targetHeight + 'px';
+                    container.style.position = 'relative'; // 确保容器是定位上下文
+                }
+                
+                // 先让占位符改为绝对定位，然后淡出（实现平滑过渡）
+                placeholder.style.position = 'absolute';
+                placeholder.style.top = '0';
+                placeholder.style.left = '0';
+                placeholder.style.width = '100%';
+                placeholder.style.height = targetHeight + 'px';
+                placeholder.style.opacity = '0';
+                placeholder.style.pointerEvents = 'none';
+                placeholder.style.transition = 'opacity 0.3s';
+                
+                // 设置视频元素的高度和位置
+                video.style.position = 'absolute';
+                video.style.top = '0';
+                video.style.left = '0';
+                video.style.width = '100%';
+                video.style.height = targetHeight + 'px';
                 video.style.display = 'block';
+                video.style.zIndex = '11';
                 video.classList.add('playing');
-                video.style.filter = 'grayscale(0%)';
                 
                 const playPromise = video.play();
                 if (playPromise !== undefined) {
@@ -862,9 +1046,39 @@
                         console.log('移动端视频播放成功:', video.id);
                     }).catch(err => {
                         console.log('播放失败:', err, video.id);
+                        const container = placeholder.closest('.video-container');
                         video.style.display = 'none';
                         video.classList.remove('playing');
+                        
+                        // 恢复视频样式
+                        video.style.position = '';
+                        video.style.top = '';
+                        video.style.left = '';
+                        video.style.width = '';
+                        video.style.height = '';
+                        
+                        // 恢复容器高度和样式
+                        if (container) {
+                            container.style.height = '';
+                            container.style.minHeight = '';
+                            container.style.position = '';
+                        }
+                        
+                        // 恢复占位符样式
+                        placeholder.style.position = 'relative';
+                        placeholder.style.width = '100%';
+                        placeholder.style.height = 'auto';
+                        placeholder.style.opacity = '1';
+                        placeholder.style.pointerEvents = 'auto';
                         placeholder.style.display = 'block';
+                        placeholder.style.transition = '';
+                        
+                        // 显示加载提示
+                        if (loadingDiv) {
+                            loadingDiv.textContent = '播放失败，点击重试';
+                            loadingDiv.style.display = 'block';
+                            placeholder.appendChild(loadingDiv);
+                        }
                     });
                 }
             }
@@ -1078,11 +1292,16 @@
                         resolve();
                     }).catch(err => {
                         console.log('播放失败:', err, video.id);
-                        // 如果播放失败，显示封面图，隐藏视频
+                        // 如果播放失败，恢复封面图显示，隐藏视频
                         video.style.display = 'none';
                         video.classList.remove('playing');
                         video.dataset.processing = 'false';
                         if (placeholder) {
+                            placeholder.style.position = 'relative';
+                            placeholder.style.width = '100%';
+                            placeholder.style.height = 'auto';
+                            placeholder.style.opacity = '1';
+                            placeholder.style.pointerEvents = 'auto';
                             placeholder.style.display = 'block';
                         }
                         reject(err);

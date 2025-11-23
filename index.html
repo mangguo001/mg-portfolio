@@ -455,6 +455,8 @@
                 object-fit: cover;
                 z-index: 11;
                 filter: grayscale(0%) !important;
+                opacity: 0;
+                transition: opacity 0.5s ease-in-out;
             }
             
             /* 视频播放时显示视频 */
@@ -857,7 +859,11 @@
                     if (container) {
                         container.style.height = '';
                         container.style.minHeight = '';
+                        container.style.position = '';
                     }
+                    // 恢复视频样式
+                    video.style.opacity = '';
+                    video.style.transition = '';
                     // 保持封面图显示
                     placeholder.style.position = 'relative';
                     placeholder.style.width = '100%';
@@ -865,6 +871,7 @@
                     placeholder.style.opacity = '1';
                     placeholder.style.pointerEvents = 'auto';
                     placeholder.style.display = 'block';
+                    placeholder.style.transition = '';
                 };
                 
                 video.addEventListener('error', onError, { once: true });
@@ -920,17 +927,16 @@
                         container.style.position = 'relative'; // 确保容器是定位上下文
                     }
                     
-                    // 先让占位符改为绝对定位，然后淡出（实现平滑过渡）
+                    // 先让占位符改为绝对定位，准备淡出
                     placeholder.style.position = 'absolute';
                     placeholder.style.top = '0';
                     placeholder.style.left = '0';
                     placeholder.style.width = '100%';
                     placeholder.style.height = targetHeight + 'px';
-                    placeholder.style.opacity = '0';
                     placeholder.style.pointerEvents = 'none';
-                    placeholder.style.transition = 'opacity 0.3s';
+                    placeholder.style.transition = 'opacity 0.5s ease-in-out';
                     
-                    // 设置视频元素的高度和位置
+                    // 设置视频元素的高度和位置，初始透明度为0（准备淡入）
                     video.style.position = 'absolute';
                     video.style.top = '0';
                     video.style.left = '0';
@@ -938,7 +944,18 @@
                     video.style.height = targetHeight + 'px';
                     video.style.display = 'block';
                     video.style.zIndex = '11';
+                    video.style.opacity = '0';
+                    video.style.transition = 'opacity 0.5s ease-in-out';
                     video.classList.add('playing');
+                    
+                    // 使用 requestAnimationFrame 确保样式已应用，然后触发交叉淡入淡出
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            // 同时触发占位符淡出和视频淡入
+                            placeholder.style.opacity = '0';
+                            video.style.opacity = '1';
+                        });
+                    });
                     
                     // 开始播放
                     const playPromise = video.play();
@@ -949,20 +966,27 @@
                             console.log('播放失败:', err, video.id);
                             // 如果播放失败，恢复封面图显示，隐藏视频
                             const container = placeholder.closest('.video-container');
+                            
+                            // 恢复视频样式
                             video.style.display = 'none';
+                            video.style.opacity = '';
+                            video.style.transition = '';
                             video.classList.remove('playing');
                             
-                            // 恢复容器高度
+                            // 恢复容器高度和样式
                             if (container) {
                                 container.style.height = '';
                                 container.style.minHeight = '';
+                                container.style.position = '';
                             }
                             
+                            // 恢复占位符样式
                             placeholder.style.position = 'relative';
                             placeholder.style.width = '100%';
                             placeholder.style.height = 'auto';
                             placeholder.style.opacity = '1';
                             placeholder.style.pointerEvents = 'auto';
+                            placeholder.style.transition = '';
                             if (loadingDiv) {
                                 loadingDiv.textContent = '播放失败，点击重试';
                                 loadingDiv.style.display = 'block';
@@ -1020,17 +1044,16 @@
                     container.style.position = 'relative'; // 确保容器是定位上下文
                 }
                 
-                // 先让占位符改为绝对定位，然后淡出（实现平滑过渡）
+                // 先让占位符改为绝对定位，准备淡出
                 placeholder.style.position = 'absolute';
                 placeholder.style.top = '0';
                 placeholder.style.left = '0';
                 placeholder.style.width = '100%';
                 placeholder.style.height = targetHeight + 'px';
-                placeholder.style.opacity = '0';
                 placeholder.style.pointerEvents = 'none';
-                placeholder.style.transition = 'opacity 0.3s';
+                placeholder.style.transition = 'opacity 0.5s ease-in-out';
                 
-                // 设置视频元素的高度和位置
+                // 设置视频元素的高度和位置，初始透明度为0（准备淡入）
                 video.style.position = 'absolute';
                 video.style.top = '0';
                 video.style.left = '0';
@@ -1038,7 +1061,18 @@
                 video.style.height = targetHeight + 'px';
                 video.style.display = 'block';
                 video.style.zIndex = '11';
+                video.style.opacity = '0';
+                video.style.transition = 'opacity 0.5s ease-in-out';
                 video.classList.add('playing');
+                
+                // 使用 requestAnimationFrame 确保样式已应用，然后触发交叉淡入淡出
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        // 同时触发占位符淡出和视频淡入
+                        placeholder.style.opacity = '0';
+                        video.style.opacity = '1';
+                    });
+                });
                 
                 const playPromise = video.play();
                 if (playPromise !== undefined) {

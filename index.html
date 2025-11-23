@@ -401,18 +401,10 @@
         
         /* 移动端：图片和视频保持原始比例 */
         @media (max-width: 768px) {
-            /* 视频容器内的视频保持原始比例 */
+            /* 视频容器 - 不限制高度，让内容决定 */
             .video-container {
                 position: relative;
                 min-height: 0;
-            }
-            
-            .video-container video {
-                position: relative;
-                width: 100%;
-                height: auto;
-                display: block;
-                object-fit: contain; /* 保持比例，不裁剪 */
             }
             
             /* 图片保持原始比例 */
@@ -422,32 +414,40 @@
                 width: 100%;
             }
             
-            /* 封面图占位符 */
+            /* 封面图占位符 - 相对定位，让容器根据封面图高度自动调整 */
             .video-placeholder {
-                position: absolute;
-                top: 0;
-                left: 0;
+                position: relative;
                 width: 100%;
-                height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+                display: block;
             }
             
             .video-placeholder .video-cover {
-                position: absolute;
-                top: 0;
-                left: 0;
+                position: relative;
                 width: 100%;
-                height: 100%;
+                height: auto;
+                display: block;
                 object-fit: cover;
             }
             
-            /* 当视频播放时，确保视频在上层 */
-            .video-container video[style*="display: block"],
-            .video-container video.playing {
+            /* 视频元素 - 保持原始比例 */
+            .video-container video {
                 position: relative;
-                z-index: 2;
+                width: 100%;
+                height: auto;
+                display: none;
+                object-fit: contain;
+            }
+            
+            /* 当视频播放时，显示视频，隐藏占位符 */
+            .video-container video.playing,
+            .video-container video[style*="display: block"] {
+                display: block !important;
+                position: relative;
+            }
+            
+            .video-container video.playing ~ .video-placeholder,
+            .video-container video[style*="display: block"] ~ .video-placeholder {
+                display: none !important;
             }
         }
 
@@ -837,15 +837,12 @@
                         if (!video.paused) {
                             video.pause();
                             video.currentTime = 0;
+                            video.style.display = 'none';
+                            video.classList.remove('playing');
                             // 显示封面图
                             if (placeholder) {
-                                placeholder.style.display = 'flex';
-                                const coverImg = placeholder.querySelector('.video-cover');
-                                if (coverImg) {
-                                    coverImg.style.display = 'block';
-                                }
+                                placeholder.style.display = 'block';
                             }
-                            video.style.display = 'none';
                         }
                     }
                 });
@@ -881,29 +878,28 @@
                 const onCanPlay = function() {
                     video.removeEventListener('canplay', onCanPlay);
                     
-                    // 先显示视频，确保可见
-                    video.style.display = 'block';
-                    video.style.position = 'relative';
-                    video.style.zIndex = '2';
-                    
-                    // 隐藏封面图
+                    // 先隐藏封面图
                     if (placeholder) {
                         placeholder.style.display = 'none';
-                        placeholder.style.zIndex = '1';
                     }
+                    
+                    // 显示视频并添加playing类
+                    video.style.display = 'block';
+                    video.classList.add('playing');
                     
                     // 开始播放
                     const playPromise = video.play();
                     if (playPromise !== undefined) {
                         playPromise.then(() => {
-                            console.log('移动端视频自动播放成功');
+                            console.log('移动端视频自动播放成功:', video.id);
                         }).catch(err => {
-                            console.log('自动播放失败:', err);
-                            // 如果自动播放失败，显示封面图
-                            if (placeholder) {
-                                placeholder.style.display = 'flex';
-                            }
+                            console.log('自动播放失败:', err, video.id);
+                            // 如果自动播放失败，显示封面图，隐藏视频
                             video.style.display = 'none';
+                            video.classList.remove('playing');
+                            if (placeholder) {
+                                placeholder.style.display = 'block';
+                            }
                         });
                     }
                 };
@@ -911,26 +907,25 @@
                 video.addEventListener('canplay', onCanPlay, { once: true });
             } else {
                 // 视频已加载，直接播放
-                video.style.display = 'block';
-                video.style.position = 'relative';
-                video.style.zIndex = '2';
-                
                 if (placeholder) {
                     placeholder.style.display = 'none';
-                    placeholder.style.zIndex = '1';
                 }
+                
+                video.style.display = 'block';
+                video.classList.add('playing');
                 
                 const playPromise = video.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
-                        console.log('移动端视频自动播放成功');
+                        console.log('移动端视频自动播放成功:', video.id);
                     }).catch(err => {
-                        console.log('播放失败:', err);
-                        // 如果播放失败，显示封面图
-                        if (placeholder) {
-                            placeholder.style.display = 'flex';
-                        }
+                        console.log('播放失败:', err, video.id);
+                        // 如果播放失败，显示封面图，隐藏视频
                         video.style.display = 'none';
+                        video.classList.remove('playing');
+                        if (placeholder) {
+                            placeholder.style.display = 'block';
+                        }
                     });
                 }
             }
@@ -1611,9 +1606,6 @@
                     mediaHTML = `
                         <div class="media-box video-container mobile-video-item" data-video-id="${videoId}" data-video-src="${videoSrc}" data-placeholder-id="${placeholderId}">
                             <span class="badge">VIDEO</span>
-                            <div class="video-placeholder" id="${placeholderId}">
-                                <img class="video-cover" src="${coverSrc}" alt="${item.title}" onerror="handleCoverError(this, '${item.file}');" loading="lazy">
-                            </div>
                             <video 
                                 id="${videoId}"
                                 data-src="${videoSrc}"
@@ -1625,6 +1617,9 @@
                                 webkit-playsinline="true"
                                 x5-playsinline="true"
                             ></video>
+                            <div class="video-placeholder" id="${placeholderId}">
+                                <img class="video-cover" src="${coverSrc}" alt="${item.title}" onerror="handleCoverError(this, '${item.file}');" loading="lazy">
+                            </div>
                         </div>
                     `;
                 } else {

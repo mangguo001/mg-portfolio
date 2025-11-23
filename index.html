@@ -32,7 +32,7 @@
             position: relative; /* 关键定位 */
             height: 75vh;       /* 高度占屏幕 75% */
             min-height: 500px;
-            margin-bottom: 50px;
+            margin-bottom: 30px; /* 从 50px 减少到 30px，让渐变更接近菜单栏 */
             overflow: hidden;   /* 裁掉多余视频 */
             display: flex;
             align-items: flex-end; /* 内容沉底 */
@@ -52,14 +52,26 @@
             pointer-events: auto; /* 确保可以接收鼠标事件 */
         }
         
-        /* 渐变淡出效果 */
+        /* 渐变淡出效果 - 延长到菜单栏，过渡更自然 */
         .header-gradient-fade {
             position: absolute;
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 96px; /* 24 * 4 = 96px */
-            background: linear-gradient(to top, var(--bg-color), transparent);
+            height: 300px; /* 延长到菜单栏区域 */
+            background: linear-gradient(
+                to top, 
+                var(--bg-color) 0%,
+                var(--bg-color) 15%,  /* 前 15% 保持纯背景色 */
+                rgba(240, 240, 240, 0.95) 25%,
+                rgba(240, 240, 240, 0.85) 35%,
+                rgba(240, 240, 240, 0.7) 45%,
+                rgba(240, 240, 240, 0.5) 55%,
+                rgba(240, 240, 240, 0.3) 65%,
+                rgba(240, 240, 240, 0.15) 75%,
+                rgba(240, 240, 240, 0.05) 85%,
+                transparent 100%
+            );
             z-index: 1;
             pointer-events: none;
         }
@@ -545,11 +557,27 @@
                 filter: grayscale(0%) !important;
             }
             
-            /* 确保移动端图片也能正确显示 */
+            /* 移动端图片：默认黑白，进入视口后变为彩色 */
             .media-box > img:not(.video-cover) {
                 width: 100%;
                 height: auto;
                 display: block;
+                filter: grayscale(100%) !important; /* 默认黑白，添加 !important 确保优先级 */
+                transition: filter 0.3s;
+            }
+            
+            /* 图片进入视口后变为彩色 */
+            .media-box > img:not(.video-cover).in-view {
+                filter: grayscale(0%) !important;
+            }
+            
+            /* 确保移动端普通图片（非视频封面）应用灰度效果 */
+            .item .media-box img:not(.video-cover) {
+                filter: grayscale(100%) !important;
+            }
+            
+            .item .media-box img:not(.video-cover).in-view {
+                filter: grayscale(0%) !important;
             }
         }
 
@@ -1897,6 +1925,74 @@
             };
         }
         
+        // 移动端图片滑动变彩色（使用 Intersection Observer）
+        function setupMobileImageColor(imgElement) {
+            if (!imgElement) {
+                debugError('找不到图片元素');
+                return;
+            }
+            
+            debugLog('设置移动端图片变彩色:', imgElement.src, imgElement);
+            
+            let isInView = false;
+            let colorTimeout = null;
+            let grayscaleTimeout = null;
+            
+            // 检查图片是否已经在视口中
+            const checkInitialView = () => {
+                const rect = imgElement.getBoundingClientRect();
+                const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+                if (isVisible && !isInView) {
+                    imgElement.classList.add('in-view');
+                    isInView = true;
+                    debugLog('图片初始已在视口，直接变为彩色:', imgElement.src);
+                }
+            };
+            
+            // 延迟检查，确保图片已渲染
+            setTimeout(checkInitialView, 100);
+            
+            // 创建 Intersection Observer
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    debugLog('Intersection Observer 触发:', entry.isIntersecting, entry.intersectionRatio, imgElement.src);
+                    if (entry.isIntersecting) {
+                        // 进入视口，变为彩色
+                        if (!isInView) {
+                            if (colorTimeout) clearTimeout(colorTimeout);
+                            colorTimeout = setTimeout(() => {
+                                imgElement.classList.add('in-view');
+                                isInView = true;
+                                debugLog('移动端图片变为彩色:', imgElement.src);
+                            }, 100); // 减少延迟到 100ms
+                        }
+                    } else {
+                        // 离开视口，变回黑白
+                        if (isInView) {
+                            if (grayscaleTimeout) clearTimeout(grayscaleTimeout);
+                            grayscaleTimeout = setTimeout(() => {
+                                imgElement.classList.remove('in-view');
+                                isInView = false;
+                                debugLog('移动端图片变回黑白:', imgElement.src);
+                            }, 100);
+                        }
+                    }
+                });
+            }, {
+                threshold: 0.3, // 降低到 30%，更容易触发
+                rootMargin: '50px' // 提前 50px 触发，让体验更流畅
+            });
+            
+            observer.observe(imgElement);
+            
+            // 返回清理函数
+            return () => {
+                observer.disconnect();
+                if (colorTimeout) clearTimeout(colorTimeout);
+                if (grayscaleTimeout) clearTimeout(grayscaleTimeout);
+            };
+        }
+        
         // 移动端视频自动播放函数（返回 Promise）
         function autoPlayMobileVideo(video, videoSrc, placeholder) {
             return new Promise((resolve, reject) => {
@@ -2673,10 +2769,12 @@
             // 添加分类属性，如果没有分类则默认为"其他"
             card.setAttribute('data-category', item.category || '其他');
             
+            // 在循环开始时就检测移动端（对所有类型都有效）
+            const isMobile = isMobileDevice();
+            
             let mediaHTML = '';
             
             // 在循环外部定义变量，确保作用域正确
-            let isMobile = false;
             let videoId = '';
             let placeholderId = '';
             let videoSrc = '';
@@ -2684,7 +2782,6 @@
 
             if (item.type === 'video') {
                 // 视频：移动端懒加载优化，桌面端正常加载
-                isMobile = isMobileDevice();
                 videoId = `video-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`;
                 placeholderId = `placeholder-${videoId}`;
                 videoSrc = assetPath + item.file;
@@ -2821,6 +2918,18 @@
                 }
             }
             });
+            
+            // 在所有作品生成完成后，统一设置所有移动端图片滑动变彩色
+            if (isMobileDevice()) {
+                setTimeout(() => {
+                    const allImages = gallery.querySelectorAll('.item .media-box img:not(.video-cover)');
+                    debugLog('找到所有移动端图片:', allImages.length);
+                    allImages.forEach((img, index) => {
+                        debugLog(`设置第 ${index + 1} 张图片变彩色:`, img.src);
+                        setupMobileImageColor(img);
+                    });
+                }, 300);
+            }
             
             // 初始化分类筛选功能
             initFilterButtons();

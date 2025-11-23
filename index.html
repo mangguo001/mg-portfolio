@@ -52,28 +52,6 @@
             pointer-events: auto; /* 确保可以接收鼠标事件 */
         }
         
-        /* 渐变淡出效果 - 只在 header 内部，不延伸到视频区域 */
-        .header-gradient-fade {
-            position: absolute;
-            bottom: -30px; /* 大幅减少延伸，只延伸到 header 底部附近 */
-            left: 0;
-            width: 100%;
-            height: 200px; /* 大幅减少高度，只覆盖 header 底部区域 */
-            background: linear-gradient(
-                to top, 
-                var(--bg-color) 0%,
-                var(--bg-color) 30%,  /* 增加纯背景色区域 */
-                rgba(240, 240, 240, 0.9) 40%,
-                rgba(240, 240, 240, 0.7) 50%,
-                rgba(240, 240, 240, 0.5) 60%,
-                rgba(240, 240, 240, 0.3) 70%,
-                rgba(240, 240, 240, 0.1) 80%,
-                transparent 90%  /* 在 90% 处就完全透明，不再延伸 */
-            );
-            z-index: 0; /* 降低到 0，作为背景层，不遮挡内容 */
-            pointer-events: none;
-        }
-        
         /* 控制面板样式（可选） */
         .starry-controls {
             position: absolute;
@@ -679,9 +657,6 @@
     <header id="starry-header">
         <!-- Canvas 背景层 -->
         <canvas id="starry-canvas"></canvas>
-        
-        <!-- 渐变淡出效果 -->
-        <div class="header-gradient-fade"></div>
         
         <!-- 黑色遮罩 -->
         <div class="overlay"></div>

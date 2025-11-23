@@ -423,6 +423,10 @@
                 min-height: 200px; /* 确保有最小高度 */
             }
             
+            .video-placeholder {
+                cursor: pointer; /* 添加手型光标，提示可点击 */
+            }
+            
             .video-placeholder .video-cover {
                 position: relative !important; /* 强制覆盖全局的绝对定位 */
                 width: 100% !important;
@@ -430,22 +434,36 @@
                 display: block !important;
                 object-fit: cover;
                 max-width: 100%;
+                transition: filter 0.3s; /* 添加过渡效果 */
             }
             
-            /* 视频元素 - 保持原始比例 */
+            /* 点击后封面图变为彩色 */
+            .video-placeholder.clicked .video-cover,
+            .video-placeholder:active .video-cover {
+                filter: grayscale(0%) !important;
+            }
+            
+            /* 确保视频播放时是彩色的 */
+            .video-container video.playing {
+                filter: grayscale(0%) !important;
+            }
+            
+            /* 视频元素 - 保持原始比例，移除灰度滤镜 */
             .video-container video {
                 position: relative;
                 width: 100%;
                 height: auto;
                 display: none;
                 object-fit: contain;
+                filter: grayscale(0%) !important; /* 移动端视频保持彩色 */
             }
             
-            /* 当视频播放时，显示视频，隐藏占位符 */
+            /* 当视频播放时，显示视频，隐藏占位符，保持彩色 */
             .video-container video.playing,
             .video-container video[style*="display: block"] {
                 display: block !important;
                 position: relative;
+                filter: grayscale(0%) !important; /* 播放时保持彩色 */
             }
             
             .video-container video.playing ~ .video-placeholder,
@@ -780,13 +798,91 @@
             }
         }
         
-        // 移动端视频自动播放设置（使用 Intersection Observer）
+        // 移动端视频点击播放函数
+        function handleMobileVideoClick(videoId, videoSrc, placeholderId) {
+            const video = document.getElementById(videoId);
+            const placeholder = document.getElementById(placeholderId);
+            
+            if (!video || !placeholder) {
+                console.error('找不到视频或占位符:', { videoId, placeholderId });
+                return;
+            }
+            
+            // 如果视频正在播放，不做任何操作
+            if (!video.paused && video.readyState >= 2) {
+                return;
+            }
+            
+            // 添加点击标记，让封面图变为彩色
+            placeholder.classList.add('clicked');
+            
+            // 设置视频源并加载
+            if (!video.src || video.src !== videoSrc) {
+                video.src = videoSrc;
+                video.load();
+                
+                // 等待视频可以播放
+                const onCanPlay = function() {
+                    video.removeEventListener('canplay', onCanPlay);
+                    
+                    // 隐藏封面图
+                    placeholder.style.display = 'none';
+                    
+                    // 显示视频并添加playing类，移除灰度滤镜
+                    video.style.display = 'block';
+                    video.classList.add('playing');
+                    video.style.filter = 'grayscale(0%)';
+                    
+                    // 开始播放
+                    const playPromise = video.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            console.log('移动端视频播放成功:', video.id);
+                        }).catch(err => {
+                            console.log('播放失败:', err, video.id);
+                            // 如果播放失败，显示封面图，隐藏视频
+                            video.style.display = 'none';
+                            video.classList.remove('playing');
+                            placeholder.style.display = 'block';
+                        });
+                    }
+                };
+                
+                video.addEventListener('canplay', onCanPlay, { once: true });
+            } else {
+                // 视频已加载，直接播放
+                placeholder.style.display = 'none';
+                video.style.display = 'block';
+                video.classList.add('playing');
+                video.style.filter = 'grayscale(0%)';
+                
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log('移动端视频播放成功:', video.id);
+                    }).catch(err => {
+                        console.log('播放失败:', err, video.id);
+                        video.style.display = 'none';
+                        video.classList.remove('playing');
+                        placeholder.style.display = 'block';
+                    });
+                }
+            }
+        }
+        
+        // 移动端视频自动播放设置（使用 Intersection Observer）- 已废弃，改为点击播放
         function setupMobileVideoAutoplay(videoId, videoSrc, placeholderId) {
-            console.log('设置移动端视频自动播放:', videoId);
+            console.log('设置移动端视频自动播放:', videoId, 'videoSrc:', videoSrc);
             const container = document.querySelector(`[data-video-id="${videoId}"]`);
             if (!container) {
                 console.error('找不到容器:', videoId);
                 return;
+            }
+            
+            // 如果 videoSrc 为空，尝试从容器获取
+            if (!videoSrc) {
+                videoSrc = container.getAttribute('data-video-src');
+                console.log('从容器获取 videoSrc:', videoSrc);
             }
             
             const video = document.getElementById(videoId);
@@ -797,7 +893,13 @@
                 return;
             }
             
-            console.log('开始监听视频:', videoId);
+            // 确保 videoSrc 有值
+            if (!videoSrc) {
+                console.error('videoSrc 为空，无法设置自动播放:', videoId);
+                return;
+            }
+            
+            console.log('开始监听视频:', videoId, '最终 videoSrc:', videoSrc);
             
             // 添加状态标记，避免重复操作
             let isProcessing = false;
@@ -900,9 +1002,24 @@
                 
                 video.dataset.processing = 'true';
             
-            // 如果视频还没加载，先加载视频源
-            const currentSrc = video.src || video.getAttribute('data-src') || '';
-            if (!currentSrc || currentSrc !== videoSrc) {
+            // 使用传入的 videoSrc 参数，确保有值
+            if (!videoSrc) {
+                console.error('videoSrc 参数为空:', video.id);
+                video.dataset.processing = 'false';
+                reject(new Error('videoSrc 参数为空'));
+                return;
+            }
+            
+            // 直接检查 video.src 是否为空或与 videoSrc 不同，确保设置视频源
+            console.log('视频源检查:', {
+                videoId: video.id,
+                videoSrcParam: videoSrc,
+                videoSrcAttr: video.src,
+                dataSrc: video.getAttribute('data-src')
+            });
+            
+            if (!video.src || video.src !== videoSrc) {
+                console.log('设置视频源:', videoSrc);
                 video.src = videoSrc;
                 video.load();
                 
@@ -1649,10 +1766,13 @@
                 coverSrc = getCoverImagePath(item.file, item.cover, assetPath);
                 
                 if (isMobile) {
-                    // 移动端：自动播放（滚动到视口时）
+                    // 移动端：点击封面图后播放视频
                     mediaHTML = `
                         <div class="media-box video-container mobile-video-item" data-video-id="${videoId}" data-video-src="${videoSrc}" data-placeholder-id="${placeholderId}">
                             <span class="badge">VIDEO</span>
+                            <div class="video-placeholder" id="${placeholderId}" onclick="handleMobileVideoClick('${videoId}', '${videoSrc}', '${placeholderId}'); event.stopPropagation();">
+                                <img class="video-cover" src="${coverSrc}" alt="${item.title}" onerror="handleCoverError(this, '${item.file}');" loading="lazy">
+                            </div>
                             <video 
                                 id="${videoId}"
                                 data-src="${videoSrc}"
@@ -1664,9 +1784,6 @@
                                 webkit-playsinline="true"
                                 x5-playsinline="true"
                             ></video>
-                            <div class="video-placeholder" id="${placeholderId}">
-                                <img class="video-cover" src="${coverSrc}" alt="${item.title}" onerror="handleCoverError(this, '${item.file}');" loading="lazy">
-                            </div>
                         </div>
                     `;
                 } else {
@@ -1733,12 +1850,7 @@
             gallery.appendChild(card);
             
             // 移动端视频自动播放（滚动到视口时）
-            if (isMobile && item.type === 'video') {
-                // 延迟设置，确保DOM已完全加载
-                setTimeout(() => {
-                    setupMobileVideoAutoplay(videoId, videoSrc, placeholderId);
-                }, 100);
-            }
+            // 移动端不再使用自动播放，改为点击播放
             
             // 为视频添加加载完成事件处理（移动端优化）
             if (item.type === 'video') {

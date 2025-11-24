@@ -3150,7 +3150,18 @@
         // 🌐 CDN 配置（解决中国访问 GitHub Pages 慢的问题）
         // ========================================================
         const CDN_CONFIG = {
-            // GitHub 仓库信息
+            // ========== 七牛云 CDN 配置（优先使用） ==========
+            // 设置为 true 启用七牛云 CDN，设置为 false 则使用 jsDelivr 备用方案
+            useQiniuCDN: true,  // 改为 false 可禁用七牛云，使用 jsDelivr
+            
+            // 七牛云 CDN 域名（请替换为你的实际域名）
+            // 方式一：使用默认测试域名（格式：https://你的空间名.bkt.clouddn.com/）
+            // 方式二：使用自定义域名（需要域名已备案，格式：https://你的域名.com/）
+            // 注意：域名末尾需要带斜杠 /
+            // ⚠️ 上传文件到七牛云后，请在此处填入你的 CDN 域名
+            qiniuCDNBase: 'http://t67uxf1bp.hd-bkt.clouddn.com/',  // 七牛云测试域名
+            
+            // ========== GitHub 仓库信息（备用方案） ==========
             githubUser: 'mangguo001',
             githubRepo: 'mg-portfolio',
             githubBranch: 'main',
@@ -3163,24 +3174,36 @@
         
         // 生成资源路径（assets 文件夹）
         function getAssetPath() {
-            if (CDN_CONFIG.useCDN) {
-                // 使用 jsDelivr CDN 加速
-                return `https://cdn.jsdelivr.net/gh/${CDN_CONFIG.githubUser}/${CDN_CONFIG.githubRepo}@${CDN_CONFIG.githubBranch}/assets/`;
-            } else {
-                // 本地开发使用相对路径
-                return './assets/';
+            // 优先使用七牛云 CDN（如果已配置，无论本地还是服务器都使用）
+            if (CDN_CONFIG.useQiniuCDN && CDN_CONFIG.qiniuCDNBase && !CDN_CONFIG.qiniuCDNBase.includes('你的七牛云域名')) {
+                return CDN_CONFIG.qiniuCDNBase + 'assets/';
             }
+            
+            // 如果配置了使用 CDN（GitHub Pages 等环境），使用 jsDelivr 备用方案
+            if (CDN_CONFIG.useCDN) {
+                return `https://cdn.jsdelivr.net/gh/${CDN_CONFIG.githubUser}/${CDN_CONFIG.githubRepo}@${CDN_CONFIG.githubBranch}/assets/`;
+            }
+            
+            // 本地开发且未配置七牛云 CDN 时，使用相对路径
+            return './assets/';
         }
         
         // 生成 JSON 数据路径
         function getDataPath(filename) {
-            if (CDN_CONFIG.useCDN) {
-                // 使用 jsDelivr CDN 加速
-                return `https://cdn.jsdelivr.net/gh/${CDN_CONFIG.githubUser}/${CDN_CONFIG.githubRepo}@${CDN_CONFIG.githubBranch}/_data/${filename}`;
-            } else {
-                // 本地开发使用相对路径
-                return `./_data/${filename}`;
+            // 优先使用七牛云 CDN（如果已配置，无论本地还是服务器都使用）
+            if (CDN_CONFIG.useQiniuCDN && CDN_CONFIG.qiniuCDNBase && !CDN_CONFIG.qiniuCDNBase.includes('你的七牛云域名')) {
+                // 确保路径正确：qiniuCDNBase 末尾有斜杠，直接拼接 _data/
+                const base = CDN_CONFIG.qiniuCDNBase.endsWith('/') ? CDN_CONFIG.qiniuCDNBase : CDN_CONFIG.qiniuCDNBase + '/';
+                return base + '_data/' + filename;
             }
+            
+            // 如果配置了使用 CDN（GitHub Pages 等环境），使用 jsDelivr 备用方案
+            if (CDN_CONFIG.useCDN) {
+                return `https://cdn.jsdelivr.net/gh/${CDN_CONFIG.githubUser}/${CDN_CONFIG.githubRepo}@${CDN_CONFIG.githubBranch}/_data/${filename}`;
+            }
+            
+            // 本地开发且未配置七牛云 CDN 时，使用相对路径
+            return `./_data/${filename}`;
         }
 
         // ========================================================

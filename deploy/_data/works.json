@@ -1,0 +1,75 @@
+{
+  "works": [
+    {
+      "id": 1,
+      "type": "video",
+      "file": "demo_video.mp4",
+      "title": "UE5.6/MetaHuman 全职猎人尼飞彼多",
+      "desc": "Blender / ue5.6",
+      "category": "动画",
+      "link": "https://www.bilibili.com/video/BV1zhCTB4Ebx",
+      "order": 1
+    },
+    {
+      "id": 2,
+      "type": "video",
+      "file": "my_animation.mp4",
+      "title": "假如我家的猫COS全职猎人里的角色之尼飞彼多",
+      "desc": "Blender",
+      "category": "动画",
+      "link": "https://www.bilibili.com/video/BV1Kb1jBqEdM",
+      "order": 2
+    },
+    {
+      "id": 3,
+      "type": "video",
+      "file": "my_animation2.mp4",
+      "title": "九天揽月|自制动画",
+      "desc": "Blender",
+      "category": "动画",
+      "link": "https://www.bilibili.com/video/BV1Q7xVzBEyh",
+      "order": 3
+    },
+    {
+      "id": 4,
+      "type": "video",
+      "file": "噬金虫.mp4",
+      "title": "噬金虫|位列人界奇虫榜第十二位，终成道祖",
+      "desc": "Blender",
+      "category": "动画",
+      "link": "https://www.bilibili.com/video/BV1FrHnzaEB1",
+      "order": 4
+    },
+    {
+      "id": 5,
+      "type": "video",
+      "file": "全职猎人凯特.mp4",
+      "title": "全职猎人凯特真人版",
+      "desc": "Blender",
+      "category": "动画",
+      "link": "https://www.bilibili.com/video/BV13mW4zzEVW",
+      "order": 5
+    },
+    {
+      "id": 6,
+      "type": "image",
+      "file": "2021 (2).JPG",
+      "title": "无题",
+      "desc": "板绘",
+      "category": "绘画",
+      "link": "",
+      "order": 6
+    },
+    {
+      "id": 7,
+      "type": "image",
+      "file": "2017.JPG",
+      "title": "婚纱",
+      "desc": "作品描述",
+      "category": "绘画",
+      "link": "",
+      "order": 7
+    }
+  ]
+}
+

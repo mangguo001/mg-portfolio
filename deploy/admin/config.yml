@@ -1,0 +1,46 @@
+backend:
+  name: git-gateway
+  branch: main # 分支名称
+
+media_folder: "assets/uploads" # 上传文件保存位置
+public_folder: "/assets/uploads" # 公开访问路径
+
+collections:
+  # 作品集合
+  - name: "works"
+    label: "作品管理"
+    folder: "_data/works"
+    create: true
+    delete: true
+    slug: "{{slug}}"
+    editor:
+      preview: false
+    fields:
+      - {label: "ID", name: "id", widget: "number", required: true}
+      - {label: "标题", name: "title", widget: "string", required: true}
+      - {label: "描述", name: "desc", widget: "string", required: true}
+      - {label: "类型", name: "type", widget: "select", options: ["video", "image"], default: "video", required: true}
+      - {label: "文件名", name: "file", widget: "string", required: true, hint: "assets文件夹中的文件名"}
+      - {label: "分类", name: "category", widget: "select", options: ["动画", "绘画", "交互", "设计"], required: true}
+      - {label: "链接", name: "link", widget: "string", required: false, hint: "点击跳转的链接（如B站链接）"}
+      - {label: "排序", name: "order", widget: "number", default: 0, hint: "数字越小越靠前"}
+  
+  # 页面设置
+  - name: "settings"
+    label: "页面设置"
+    files:
+      - file: "_data/settings.json"
+        label: "网站设置"
+        name: "settings"
+        fields:
+          - {label: "网站标题", name: "siteTitle", widget: "string", required: true}
+          - {label: "头部大标题", name: "headerTitle", widget: "text", required: true, hint: "使用\\n换行"}
+          - {label: "介绍文字", name: "intro", widget: "object", fields: [
+              {label: "第一行", name: "line1", widget: "string"},
+              {label: "第二行", name: "line2", widget: "string"},
+              {label: "第三行", name: "line3", widget: "string"},
+              {label: "第四行", name: "line4", widget: "string"},
+              {label: "第五行", name: "line5", widget: "string"}
+            ]}
+          - {label: "分类列表", name: "categories", widget: "list", allow_add: true, default: ["动画", "绘画", "交互", "设计"]}
+

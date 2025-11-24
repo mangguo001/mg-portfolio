@@ -1,0 +1,3584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MY WORK</title>
+    <style>
+        /* --- 极简工业风格设置 --- */
+        :root {
+            --bg-color: #F0F0F0;
+            --text-color: #111;
+            --card-bg: #FFF;
+            --font-main: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        body {
+            margin: 0;
+            padding: 40px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            overflow-x: hidden;
+        }
+
+        /* 顶部介绍区 */
+ /* ========================================= */
+        /* ✅ 新的：头部背景视频样式 (替换开始)       */
+        /* ========================================= */
+        
+        header {
+            position: relative; /* 关键定位 */
+            height: 75vh;       /* 高度占屏幕 75% */
+            min-height: 500px;
+            margin-bottom: 30px; /* 从 50px 减少到 30px，让渐变更接近菜单栏 */
+            overflow: hidden;   /* 改为 hidden，防止输入框超出边界 */
+            display: flex;
+            align-items: flex-end; /* 内容沉底 */
+            color: white;       /* 强制文字变白 */
+        }
+
+        /* Canvas 背景层 */
+        #starry-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background: #000;
+            display: block;
+            pointer-events: auto; /* 确保可以接收鼠标事件 */
+        }
+        
+        /* 控制面板样式（可选） */
+        .starry-controls {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 50;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+        
+        .starry-controls:hover {
+            opacity: 1;
+        }
+        
+        .starry-controls input {
+            width: 100%;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: white;
+            text-align: center;
+            font-size: 12px;
+            text-transform: uppercase;
+            font-family: var(--font-mono);
+        }
+        
+        .starry-controls input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .control-btn {
+            flex: 1;
+            padding: 6px 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: var(--font-mono);
+        }
+        
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .control-btn.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(59, 130, 246, 0.5);
+            color: rgb(191, 219, 254);
+        }
+
+        /* 顶部栏输入框样式 */
+        .header-text-input {
+            position: absolute;
+            top: 40px;  /* 与标题 padding 保持一致 */
+            right: 40px;  /* 与标题 padding 保持一致 */
+            z-index: 10;
+            width: 200px;
+            max-width: calc(100% - 80px); /* 左右各 40px，总共 80px */
+        }
+        
+        .header-text-input input {
+            width: 100%;
+            padding: 10px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-family: var(--font-mono);
+            text-align: center;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+        
+        .header-text-input input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: none;
+        }
+        
+        .header-text-input input:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+        
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .header-text-input {
+                top: 40px;  /* 与标题 padding 保持一致 */
+                right: 40px;  /* 与标题 padding 保持一致 */
+                width: 150px;
+                max-width: calc(100% - 80px); /* 移动端左右各 40px，总共 80px */
+            }
+            
+            .header-text-input input {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+        }
+
+        /* 2. 遮罩层 (中间层) - 让文字更清晰 */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0); /* 降低为 0，完全透明，不显示遮罩 */
+            z-index: 1;
+            pointer-events: none; /* 不阻挡鼠标事件，让 canvas 可以接收交互 */
+        }
+
+        /* 3. 内容层 (最上层) */
+        .header-content {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            padding: 40px; /* 文字离边缘的距离 */
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            flex-wrap: wrap; /* 手机上允许换行 */
+            gap: 20px;
+            pointer-events: none; /* 不阻挡鼠标事件，让 canvas 可以接收交互 */
+        }
+        
+        /* 但文字内容本身需要可以点击，所以内部的链接等需要恢复 pointer-events */
+        .header-content a,
+        .header-content button,
+        .header-content input {
+            pointer-events: auto;
+        }
+
+        /* 头部大标题 */
+        h1 {
+            font-size: 6rem; /* 字体改大一点更霸气 */
+            line-height: 0.85;
+            margin: 0;
+            letter-spacing: -3px;
+            text-transform: uppercase;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.5); /* 加点阴影 */
+        }
+
+        /* 头部介绍文字 */
+        .intro {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            max-width: 400px;
+            line-height: 1.5;
+            color: #eee; /* 浅灰白 */
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        /* 手机适配调整 */
+        @media (max-width: 768px) {
+            header { height: 60vh; }
+            h1 { font-size: 3.5rem; }
+            .header-content { flex-direction: column; align-items: flex-start; }
+        }
+
+        /* ========================================= */
+        /* ✅ 新的样式 (替换结束)                    */
+        /* ========================================= */
+        .intro {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            max-width: 400px;
+            line-height: 1.5;
+        }
+
+        /* 分类筛选器 */
+        .filter-container {
+            position: relative;
+            z-index: 1; /* 确保在渐变上方 */
+            margin-bottom: 50px;
+            padding: 0;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        .filter-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: flex-start;
+            align-items: center;
+            width: 100%;
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            background: var(--card-bg);
+            color: var(--text-color);
+            border: 2px solid var(--text-color);
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+            backface-visibility: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 6px 6px 0 rgba(0,0,0,0.2);
+            background: var(--text-color);
+            color: var(--card-bg);
+            border-color: var(--text-color);
+        }
+
+        .filter-btn.active {
+            background: var(--text-color);
+            color: var(--card-bg);
+            border-color: var(--text-color);
+            box-shadow: 6px 6px 0 rgba(0,0,0,0.2);
+            font-weight: 700;
+        }
+
+        .filter-btn:active {
+            transform: translateY(0);
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
+        }
+
+        /* 无结果提示 */
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+            font-family: var(--font-mono);
+            grid-column: 1 / -1;
+            font-size: 0.9rem;
+        }
+
+        /* 瀑布流布局 */
+        .gallery {
+            column-count: 3; /* 电脑显示3列 */
+            column-gap: 20px;
+        }
+
+        /* 单个作品卡片 */
+        .item {
+            break-inside: avoid;
+            background: var(--card-bg);
+            margin-bottom: 20px;
+            padding: 10px;
+            box-shadow: 4px 4px 0 rgba(0,0,0,0.1); /* 硬阴影更有设计感 */
+            transition: transform 0.2s ease;
+            cursor: pointer;
+        }
+
+        .item:hover {
+            transform: translateY(-3px);
+            box-shadow: 6px 6px 0 rgba(0,0,0,0.2);
+        }
+
+        /* 图片/视频容器 */
+        .media-box {
+            position: relative;
+            width: 100%;
+            background: #ddd; /* 加载前的占位色 */
+            overflow: hidden;
+        }
+
+        /* 桌面端：保持自适应高度，但设置最小高度防止塌陷 */
+        @media (min-width: 769px) {
+            .media-box {
+                min-height: 200px; /* 最小高度，但不强制比例 */
+            }
+        }
+        
+        /* 移动端优化：移除固定比例，使用视频原始比例 */
+        @media (max-width: 768px) {
+            .media-box {
+                /* 完全移除高度限制，让视频内容决定高度 */
+                min-height: 0;
+            }
+            
+            /* 视频容器不限制高度 */
+            .video-container {
+                min-height: 0;
+            }
+            
+            /* 隐藏移动端播放按钮 */
+            .play-button-large {
+                display: none !important;
+            }
+        }
+
+        /* 视频容器特殊处理 */
+        .video-container {
+            cursor: pointer;
+        }
+
+        /* 播放按钮（移动端显示） */
+        .play-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70px;
+            height: 70px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            display: flex; /* 默认显示，桌面端隐藏 */
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 28px;
+            z-index: 15; /* 提高层级确保可见 */
+            transition: all 0.3s ease;
+            pointer-events: auto;
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        }
+
+        .play-button:active {
+            transform: translate(-50%, -50%) scale(0.95);
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        /* 视频占位符 */
+        .video-placeholder {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #222;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            overflow: hidden;
+        }
+        
+        /* 封面图 */
+        .video-cover {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 1;
+            display: block; /* 确保封面图显示 */
+        }
+        
+        /* 封面图加载失败时的处理 */
+        .video-cover[src=""],
+        .video-cover:not([src]) {
+            display: none;
+        }
+        
+        .video-placeholder .play-button-large {
+            position: relative;
+            z-index: 2;
+        }
+
+        .play-button-large {
+            width: 80px;
+            height: 80px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .play-button-large:active {
+            transform: scale(0.95);
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        /* 视频加载中显示 */
+        .video-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            z-index: 12;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .video-loading::before {
+            content: '';
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .video-container video.ready {
+            opacity: 1;
+        }
+        
+        .video-container video.loading {
+            opacity: 0.7;
+        }
+
+        /* 视频播放时隐藏占位符和按钮 */
+        .video-container video.playing {
+            z-index: 11;
+        }
+
+        .video-container video.playing ~ .video-placeholder,
+        .video-container video.playing ~ .play-button {
+            display: none !important;
+            pointer-events: none !important;
+        }
+        
+        /* 桌面端：确保占位符不会阻挡视频元素的鼠标事件 */
+        @media (min-width: 769px) {
+            .video-placeholder {
+                pointer-events: none !important;
+            }
+        }
+
+        /* 确保图片视频铺满 */
+        .media-box img,
+        .media-box video {
+            width: 100%;
+            display: block;
+            object-fit: cover;
+            filter: grayscale(100%); /* 默认黑白 */
+            transition: filter 0.3s;
+        }
+        
+        /* 桌面端：图片和视频保持自然高度 */
+        @media (min-width: 769px) {
+            .media-box img,
+            .media-box video {
+                height: auto; /* 桌面端自适应高度 */
+            }
+        }
+        
+        /* 移动端：图片和视频保持原始比例 */
+        @media (max-width: 768px) {
+            /* 视频容器 - 不限制高度，让内容决定 */
+            .video-container {
+                position: relative;
+                min-height: 0;
+            }
+            
+            /* 图片保持原始比例 */
+            .media-box > img:not(.video-cover) {
+                position: relative;
+                height: auto;
+                width: 100%;
+            }
+            
+            /* 封面图占位符 - 相对定位，让容器根据封面图高度自动调整 */
+            /* 封面图占位符 - 先用相对定位撑开容器，保持原始比例 */
+            .video-placeholder {
+                position: relative;
+                width: 100%;
+                display: block;
+                background: #222;
+                cursor: pointer;
+            }
+            
+            .video-placeholder .video-cover {
+                position: relative;
+                width: 100%;
+                height: auto;
+                display: block;
+                object-fit: cover;
+                transition: filter 0.3s, opacity 0.3s;
+            }
+            
+            /* 点击后封面图变为彩色 */
+            .video-placeholder.clicked .video-cover,
+            .video-placeholder:active .video-cover {
+                filter: grayscale(0%) !important;
+            }
+            
+            /* 视频容器 */
+            .video-container {
+                position: relative;
+            }
+            
+            /* 移动端视频元素 - 直接显示，使用相对定位 */
+            .mobile-video-item video {
+                position: relative;
+                width: 100%;
+                height: auto;
+                display: block;
+                object-fit: cover;
+                filter: grayscale(0%) !important;
+            }
+            
+            /* 移动端图片：默认黑白，进入视口后变为彩色 */
+            .media-box > img:not(.video-cover) {
+                width: 100%;
+                height: auto;
+                display: block;
+                filter: grayscale(100%) !important; /* 默认黑白，添加 !important 确保优先级 */
+                transition: filter 0.3s;
+            }
+            
+            /* 图片进入视口后变为彩色 */
+            .media-box > img:not(.video-cover).in-view {
+                filter: grayscale(0%) !important;
+            }
+            
+            /* 确保移动端普通图片（非视频封面）应用灰度效果 */
+            .item .media-box img:not(.video-cover) {
+                filter: grayscale(100%) !important;
+            }
+            
+            .item .media-box img:not(.video-cover).in-view {
+                filter: grayscale(0%) !important;
+            }
+        }
+
+        /* 鼠标悬停变彩色 */
+        .item:hover img, .item:hover video {
+            filter: grayscale(0%);
+        }
+
+        /* 视频标识小标签 */
+        .badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #FF3333;
+            color: white;
+            font-size: 10px;
+            padding: 3px 6px;
+            font-weight: bold;
+            font-family: var(--font-mono);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* 文字信息 */
+        .meta {
+            margin-top: 12px;
+        }
+        .work-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+        }
+        .work-desc {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* 手机适配 */
+        @media (max-width: 768px) {
+            .filter-container {
+                margin-bottom: 30px;
+                padding: 0;
+            }
+            
+            .filter-buttons {
+                gap: 8px;
+                justify-content: flex-start;
+            }
+            
+            .filter-btn {
+                padding: 8px 16px;
+                font-size: 0.75rem;
+                border-radius: 6px;
+            }
+            
+            .gallery { column-count: 1; } /* 手机变1列 */
+            h1 { font-size: 3rem; }
+            body { padding: 20px; }
+            
+            /* 移动端显示播放按钮 */
+            .play-button {
+                display: flex;
+            }
+            
+            /* 移动端点击时视频播放，隐藏按钮 */
+            .video-container:active .play-button {
+                opacity: 0;
+                transition: opacity 0.2s;
+            }
+            
+            /* 移动端视频点击播放 */
+            .video-container video {
+                cursor: pointer;
+            }
+        }
+
+        /* 桌面端隐藏播放按钮 */
+        @media (min-width: 769px) {
+            .play-button {
+                display: none !important;
+            }
+            
+            .video-placeholder {
+                display: none;
+            }
+        }
+        
+        
+        
+    </style>
+</head>
+<body>
+
+    <!-- ========================================= -->
+    <!-- ✅ 新的：头部结构 (替换开始)               -->
+    <!-- ========================================= -->
+    <header id="starry-header">
+        <!-- Canvas 背景层 -->
+        <canvas id="starry-canvas"></canvas>
+        
+        <!-- 黑色遮罩 -->
+        <div class="overlay"></div>
+        
+        <!-- 顶部输入框 - 更改交互文字 -->
+        <div class="header-text-input">
+            <input 
+                type="text" 
+                id="header-text-input" 
+                value="MG-MANGO" 
+                maxlength="15" 
+                placeholder="输入文字"
+            />
+        </div>
+        
+        <!-- 控制面板（可选，右上角） -->
+        <div class="starry-controls" style="display: none;">
+            <input type="text" id="starry-text" value="MG-MANGO" maxlength="10" placeholder="输入文字" />
+            <div class="control-buttons">
+                <button id="toggle-constellations" class="control-btn active">星座</button>
+                <button id="toggle-density" class="control-btn">密度</button>
+            </div>
+        </div>
+        
+        <!-- 文字内容 -->
+        <div class="header-content">
+            <!-- 👇 这里改大标题 -->
+            <h1>
+                MG-mango<br>Portfolio.
+            </h1>
+            
+            <!-- 👇 这里改右下角的介绍 -->
+            <div class="intro">
+                慢工艺术.<br>
+                平PING & 芒果小子.<br>
+                数字艺术创作者.<br>
+                湖北武汉.<br>
+                🛰VX：mango130p<br>
+            </div>
+        </div>
+    </header>
+    <!-- ========================================= -->
+    <!-- ✅ 新的结构 (替换结束)                    -->
+    <!-- ========================================= -->
+
+    <!-- 分类筛选器 -->
+    <div class="filter-container">
+        <div class="filter-buttons">
+            <button class="filter-btn active" data-category="all">全部</button>
+            <button class="filter-btn" data-category="动画">动画</button>
+            <button class="filter-btn" data-category="绘画">绘画</button>
+            <button class="filter-btn" data-category="交互">交互</button>
+            <button class="filter-btn" data-category="设计">设计</button>
+        </div>
+    </div>
+
+    <!-- 作品展示区 -->
+    <div class="gallery" id="app"></div>
+
+    <script>
+        // ========================================================
+        // 🌟 StarryCanvas 实现（星空粒子背景）
+        // ========================================================
+        
+        // 配置常量 - 性能优化版本
+        const STARRY_CONFIG = {
+            particleBaseSize: 1.5,  // 从 1.2 改为 1.5，让粒子更大更明显
+            assembleSpeed: 0.06,
+            friction: 0.92,
+            mouseRadius: 120,
+            mousePush: 5,
+            returnForce: 0.003,
+            bgStarCount: 20,  // 从 30 减少到 20，进一步降低 GPU 消耗（视觉影响很小）
+            colors: [
+                '#ffffff', // Pure White
+                '#ccebff', // Blue-ish White
+                '#ffd9b3', // Warm White
+                '#a3b8ff', // Deep Blue
+            ]
+        };
+        
+        // Particle 类（文字粒子）
+        class Particle {
+            constructor(x, y, canvasWidth, canvasHeight) {
+                // 添加轻微随机偏移，避免完美像素网格
+                this.originX = x + (Math.random() - 0.5) * 2;
+                this.originY = y + (Math.random() - 0.5) * 2;
+                
+                // 初始随机生成位置
+                this.x = Math.random() * canvasWidth;
+                this.y = Math.random() * canvasHeight;
+                
+                this.vx = (Math.random() - 0.5) * 1;
+                this.vy = (Math.random() - 0.5) * 1;
+                
+                // 移动端使用更小的粒子大小
+                const isMobile = window.innerWidth <= 768;
+                const baseSize = isMobile ? 0.8 : STARRY_CONFIG.particleBaseSize;  // 移动端使用 0.8，桌面端使用 1.5
+                this.size = Math.random() * baseSize + (isMobile ? 0.3 : 0.5);  // 移动端最小 0.3，桌面端最小 0.5
+                this.isMobile = isMobile;  // 保存移动端标志，供 draw 方法使用
+                
+                this.color = STARRY_CONFIG.colors[Math.floor(Math.random() * STARRY_CONFIG.colors.length)];
+                
+                this.angle = Math.random() * Math.PI * 2;
+                this.blinkSpeed = 0.02 + Math.random() * 0.03;
+                this.blinkOffset = Math.random() * Math.PI * 2;
+            }
+            
+            update(mouse, width, height) {
+                // 1. 鼠标交互
+                if (mouse.x != null && mouse.y != null) {
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < STARRY_CONFIG.mouseRadius) {
+                        const forceDirectionX = dx / distance;
+                        const forceDirectionY = dy / distance;
+                        const force = (STARRY_CONFIG.mouseRadius - distance) / STARRY_CONFIG.mouseRadius;
+                        const direction = -1;
+                        
+                        this.vx += forceDirectionX * force * STARRY_CONFIG.mousePush * direction;
+                        this.vy += forceDirectionY * force * STARRY_CONFIG.mousePush * direction;
+                    }
+                }
+                
+                // 2. 返回原点
+                const dx = this.originX - this.x;
+                const dy = this.originY - this.y;
+                
+                // 呼吸运动
+                const breatheX = Math.cos(Date.now() / 2000 + this.originY * 0.01) * 2.0;
+                const breatheY = Math.sin(Date.now() / 2000 + this.originX * 0.01) * 2.0;
+                
+                this.vx += (dx + breatheX) * STARRY_CONFIG.returnForce;
+                this.vy += (dy + breatheY) * STARRY_CONFIG.returnForce;
+                
+                // 3. 摩擦力
+                this.vx *= STARRY_CONFIG.friction;
+                this.vy *= STARRY_CONFIG.friction;
+                
+                this.x += this.vx;
+                this.y += this.vy;
+            }
+            
+            draw(ctx) {
+                const alpha = 0.5 + 0.5 * Math.abs(Math.sin(Date.now() * 0.001 * this.blinkSpeed + this.blinkOffset));  // 从 0.3+0.7 改为 0.5+0.5，提高最低亮度到 0.5，让粒子更亮
+                
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                
+                // 优化：稍微降低阴影模糊，减少 GPU 消耗（视觉影响很小）
+                ctx.shadowBlur = this.isMobile ? this.size * 1.2 : this.size * 1.5;  // 从 1.5/2 降低到 1.2/1.5
+                
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        // BackgroundStar 类（背景星星）- 恢复闪烁效果
+        class BackgroundStar {
+            constructor(w, h) {
+                this.x = Math.random() * w;
+                this.y = Math.random() * h;
+                this.size = Math.random() * 1.5;  // 恢复原始大小
+                this.speed = Math.random() * 0.05 + 0.02;  // 恢复原始速度
+                // 移除缓存的 alpha，让每帧都重新计算，产生闪烁效果
+            }
+            
+            update(w, h) {
+                this.x -= this.speed;
+                if (this.x < 0) this.x = w;
+            }
+            
+            draw(ctx) {
+                ctx.save();
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.3 + 0.2})`;  // 从 0.1-0.4 改为 0.2-0.5，提高亮度范围，让背景星星更亮
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+        
+        // StarryCanvas 初始化函数
+        function initStarryCanvas() {
+            const header = document.getElementById('starry-header');
+            const canvas = document.getElementById('starry-canvas');
+            
+            if (!header || !canvas) {
+                console.warn('StarryCanvas: header 或 canvas 元素未找到');
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                console.warn('StarryCanvas: 无法获取 canvas context');
+                return;
+            }
+            
+            let particles = [];
+            let bgStars = [];
+            let mouse = { x: null, y: null };
+            let dimensions = { width: 0, height: 0 };
+            let animationId = null;
+            let text = 'MG-MANGO';
+            let showConstellations = true;
+            let density = 12;  // 从 8 改为 12（更大的值 = 更少的粒子，提升性能）
+            
+            // 缓存渐晕效果（只在尺寸改变时重新创建，不影响视觉效果）
+            let cachedGradient = null;
+            let cachedGradientSize = { width: 0, height: 0 };
+            
+            // 更新粒子（从文字生成）
+            // 添加标志防止循环调用
+            let isUpdatingParticles = false;
+            let isUpdatingDimensions = false;
+            let isResizeObserverDisconnected = false; // 跟踪 ResizeObserver 是否已断开
+            let updateDimensionsDepth = 0; // 跟踪嵌套调用深度，防止无限递归
+            
+            function updateParticles(providedWidth, providedHeight) {
+                // 防止循环调用
+                if (isUpdatingParticles) {
+                    console.warn('updateParticles 正在执行，跳过重复调用');
+                    return;
+                }
+                
+                isUpdatingParticles = true;
+                
+                // 关键修复：在 updateParticles 执行期间，设置一个全局标志，完全禁用 resize 处理
+                const previousResizeDisabled = window.__starryResizeDisabled || false;
+                window.__starryResizeDisabled = true;
+                
+                try {
+                    // 确保 text 有效（防止空字符串导致问题）
+                    if (!text || text.trim() === '') {
+                        text = 'MG-MANGO';
+                    }
+                    
+                    console.log('updateParticles 被调用，text:', text, 'particles.length:', particles.length); // 调试信息
+                    
+                    // 如果提供了尺寸参数，使用提供的尺寸（避免触发 getBoundingClientRect）
+                    // 否则获取实际显示尺寸
+                    let displayWidth, displayHeight;
+                    if (providedWidth && providedHeight) {
+                        displayWidth = providedWidth;
+                        displayHeight = providedHeight;
+                    } else {
+                        // 始终使用实际显示尺寸，确保 Canvas 尺寸正确
+                        const rect = header.getBoundingClientRect();
+                        displayWidth = rect.width;
+                        displayHeight = rect.height;
+                    }
+                
+                // 如果无法获取实际尺寸，尝试使用 dimensions
+                if (displayWidth === 0 || displayHeight === 0) {
+                    if (dimensions.width > 0 && dimensions.height > 0) {
+                        // 使用 dimensions 作为备用
+                        displayWidth = dimensions.width;
+                        displayHeight = dimensions.height;
+                    } else {
+                        // 如果 dimensions 也无效，延迟重试（可能是元素还没渲染完成）
+                        // 注意：在 finally 之前重置标志，避免延迟调用时标志仍为 true
+                        isUpdatingParticles = false;
+                        setTimeout(() => {
+                            // 延迟调用时再次检查，避免重复调用
+                            if (!isUpdatingParticles) {
+                                updateParticles();
+                            }
+                        }, 50);
+                        return;
+                    }
+                }
+                
+                // 重要：不要在 updateParticles 中更新 dimensions，避免触发 ResizeObserver 导致循环
+                // dimensions 只在 updateDimensions 中更新
+                // dimensions = { width: displayWidth, height: displayHeight }; // 已删除，避免循环
+                
+                // 设置 Canvas 内部尺寸（必须与显示尺寸完全一致）
+                // 注意：如果提供了尺寸参数（从 updateDimensions 调用），Canvas 尺寸已经更新，不需要再次更新
+                // 只有在没有提供尺寸参数时（从其他事件调用），才需要更新 Canvas 尺寸
+                if (!providedWidth || !providedHeight) {
+                    // 注意：Canvas 的 CSS 是 width: 100%; height: 100%，所以内部尺寸必须匹配显示尺寸
+                    // 但只更新 Canvas 尺寸，不更新 dimensions，避免触发 ResizeObserver
+                    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+                        // 关键修复：暂时断开 ResizeObserver，避免更新 Canvas 尺寸时触发循环
+                        if (!isResizeObserverDisconnected) {
+                            resizeObserver.disconnect();
+                            isResizeObserverDisconnected = true;
+                        }
+                        canvas.width = displayWidth;
+                        canvas.height = displayHeight;
+                        // 不要在这里重连 ResizeObserver，让 updateDimensions 的 finally 块统一处理
+                        // 如果是从其他事件调用（不是从 updateDimensions），重连逻辑会在 finally 块中处理
+                    }
+                }
+                
+                // 使用实际显示尺寸，而不是 dimensions（避免循环）
+                const width = displayWidth;
+                const height = displayHeight;
+                
+                // 验证尺寸有效性
+                if (width <= 0 || height <= 0 || !isFinite(width) || !isFinite(height)) {
+                    return;
+                }
+                
+                // 计算宽高比，用于自适应调整
+                const aspectRatio = width / height;
+                const isPortrait = height > width;
+                const isUltraWide = aspectRatio > 2.5; // 超宽屏（21:9等）
+                const isSquare = aspectRatio > 0.9 && aspectRatio < 1.1; // 接近正方形
+                
+                // 根据窗口比例自适应文字位置
+                let textY;
+                if (isUltraWide) {
+                    textY = height * 0.4; // 超宽屏时稍微上移
+                } else if (isPortrait) {
+                    // 关键修复：移动端文字往上移动，避免与底部LOGO重叠
+                    textY = height * 0.35; // 从 0.5 改为 0.35，往上移动，避免与LOGO重叠
+                } else if (isSquare) {
+                    textY = height * 0.45; // 正方形
+                } else {
+                    textY = height * 0.5; // 标准横屏
+                }
+                
+                // 字体大小计算
+                const tempCanvas = document.createElement('canvas');
+                // 优化：设置 willReadFrequently 属性，提高 getImageData 性能
+                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+                if (!tempCtx) return;
+                
+                // 关键修复：确保临时 Canvas 尺寸正确设置
+                // Canvas 的 width 和 height 必须是整数，如果传入浮点数会被转换
+                // 参考代码：tempCanvas.width = width; tempCanvas.height = height;
+                // 但我们需要确保 width 和 height 是整数，避免浮点数导致的采样问题
+                const canvasWidth = Math.floor(width);
+                const canvasHeight = Math.floor(height);
+                tempCanvas.width = canvasWidth;
+                tempCanvas.height = canvasHeight;
+                
+                // 关键修复：使用整数尺寸进行所有后续操作
+                // 这样可以避免浮点数导致的采样问题
+                const workingWidth = canvasWidth;
+                const workingHeight = canvasHeight;
+                
+                // 根据窗口比例自适应初始字体大小
+                // 关键修复：使用整数尺寸计算字体大小
+                let baseFontSize;
+                if (isUltraWide) {
+                    baseFontSize = Math.min(workingWidth * 0.12, workingHeight * 0.7); // 超宽屏：基于宽度，限制高度
+                } else if (isPortrait) {
+                    baseFontSize = Math.min(workingWidth * 0.35, workingHeight * 0.3); // 竖屏：基于宽度
+                } else if (isSquare) {
+                    baseFontSize = Math.min(workingWidth * 0.3, workingHeight * 0.5); // 正方形：平衡
+                } else {
+                    baseFontSize = Math.min(workingWidth * 0.2, workingHeight * 0.55); // 标准横屏：平衡
+                }
+                
+                // 确保 baseFontSize 有效
+                if (!isFinite(baseFontSize) || baseFontSize <= 0) {
+                    baseFontSize = 400; // 默认值
+                }
+                
+                let fontSize = Math.max(100, Math.min(600, Math.floor(baseFontSize))); // 限制在 100-600 之间（降低最小值）
+                
+                // 明确设置字体样式，防止斜体
+                tempCtx.font = `normal 700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
+                
+                // 根据窗口比例自适应目标宽度（边距）
+                let targetWidthRatio;
+                if (isUltraWide) {
+                    targetWidthRatio = 0.65; // 超宽屏：留更多边距
+                } else if (isPortrait) {
+                    // 关键修复：移动端增加边距，但不要太多
+                    // 从 0.85 改为 0.7，左右各 15% 边距，比原来的 7.5% 增加一倍
+                    targetWidthRatio = 0.7; // 左右各 15% 边距
+                } else {
+                    targetWidthRatio = 0.75; // 标准：平衡
+                }
+                
+                const targetWidth = workingWidth * targetWidthRatio;
+                let textMetrics = tempCtx.measureText(text);
+                
+                if (textMetrics.width > targetWidth && textMetrics.width > 0) {
+                    fontSize = Math.floor(fontSize * (targetWidth / textMetrics.width));
+                }
+                
+                // 根据窗口比例自适应最大高度
+                let maxHeightRatio;
+                if (isUltraWide) {
+                    maxHeightRatio = 0.5; // 超宽屏：限制高度
+                } else if (isPortrait) {
+                    maxHeightRatio = 0.35; // 竖屏
+                } else {
+                    maxHeightRatio = 0.6; // 标准横屏
+                }
+                
+                const maxH = workingHeight * maxHeightRatio;
+                if (fontSize > maxH) {
+                    fontSize = maxH;
+                }
+                
+                // 最终验证 fontSize 有效性（确保不会太小）
+                // 全屏时，Canvas 可能很大，但字体不能太小，否则无法采样到
+                // 关键修复：移动端使用更小的默认值，避免文字超出画面
+                const isMobileDevice = window.innerWidth <= 768;
+                if (!isFinite(fontSize) || fontSize < 100) {
+                    // 移动端使用更小的默认值，避免文字超出画面
+                    if (isMobileDevice) {
+                        fontSize = Math.max(100, Math.min(workingWidth, workingHeight) * 0.15); // 移动端使用 15%
+                    } else {
+                        fontSize = Math.max(200, Math.min(workingWidth, workingHeight) * 0.1); // 桌面端使用 10%
+                    }
+                    console.warn('字体大小无效，使用默认值:', fontSize, 'width:', workingWidth, 'height:', workingHeight, 'isMobile:', isMobileDevice);
+                }
+                
+                // 重新设置字体（确保使用计算后的字体大小，并明确指定 normal）
+                tempCtx.font = `normal 700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
+                tempCtx.fillStyle = 'white';
+                tempCtx.textAlign = 'center';
+                tempCtx.textBaseline = 'middle';
+                
+                // 关键修复：确保文字宽度不会超出 Canvas
+                textMetrics = tempCtx.measureText(text);
+                const textWidth = textMetrics.width;
+                
+                // 如果文字宽度超出 Canvas，进一步缩小字体
+                // 关键修复：移动端使用与 targetWidthRatio 一致的比例
+                const maxWidthRatio = isPortrait ? 0.7 : 0.95; // 移动端使用 0.7（与 targetWidthRatio 一致），桌面端使用 0.95
+                if (textWidth > workingWidth * maxWidthRatio) {
+                    fontSize = Math.floor(fontSize * (workingWidth * maxWidthRatio / textWidth));
+                    tempCtx.font = `normal 700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
+                    console.warn('文字宽度超出 Canvas，缩小字体到:', fontSize, 'textWidth:', textWidth, 'workingWidth:', workingWidth, 'maxWidthRatio:', maxWidthRatio);
+                }
+                
+                // 确保文字位置在 Canvas 范围内，防止超出（始终居中）
+                const textX = workingWidth / 2; // 始终水平居中
+                const finalTextY = Math.min(Math.max(textY, fontSize / 2), workingHeight - fontSize / 2);
+                
+                // 清除临时 Canvas（确保干净）
+                tempCtx.clearRect(0, 0, workingWidth, workingHeight);
+                
+                // 绘制文字
+                tempCtx.fillText(text, textX, finalTextY);
+                
+                // 关键修复：验证文字是否真的被绘制了（简单检查）
+                // 在文字中心位置采样几个像素，确保文字被绘制
+                const checkX = Math.floor(textX);
+                const checkY = Math.floor(finalTextY);
+                const checkSize = 20; // 检查 20x20 的区域
+                const checkData = tempCtx.getImageData(
+                    Math.max(0, checkX - checkSize / 2),
+                    Math.max(0, checkY - checkSize / 2),
+                    Math.min(checkSize, workingWidth - Math.max(0, checkX - checkSize / 2)),
+                    Math.min(checkSize, workingHeight - Math.max(0, checkY - checkSize / 2))
+                );
+                let maxAlphaInCheck = 0;
+                for (let i = 3; i < checkData.data.length; i += 4) {
+                    if (checkData.data[i] > maxAlphaInCheck) {
+                        maxAlphaInCheck = checkData.data[i];
+                    }
+                }
+                
+                // 如果文字中心区域没有像素，说明绘制失败
+                if (maxAlphaInCheck < 100) {
+                    console.error('文字可能未正确绘制:', {
+                        text, textX, finalTextY, fontSize, 
+                        width: workingWidth, height: workingHeight,
+                        maxAlpha: maxAlphaInCheck,
+                        tempCanvasSize: { width: tempCanvas.width, height: tempCanvas.height }
+                    });
+                    // 尝试重新绘制一次
+                    tempCtx.clearRect(0, 0, workingWidth, workingHeight);
+                    tempCtx.font = `normal 700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
+                    tempCtx.fillStyle = 'white';
+                    tempCtx.textAlign = 'center';
+                    tempCtx.textBaseline = 'middle';
+                    tempCtx.fillText(text, textX, finalTextY);
+                }
+                
+                // 关键修复：使用整数尺寸获取 imageData
+                // 参考代码：直接绘制文字，然后立即采样，简单可靠
+                const imageData = tempCtx.getImageData(0, 0, workingWidth, workingHeight);
+                const data = imageData.data;
+                const newParticles = [];
+                
+                // 检测移动端，使用更少的粒子
+                const isMobile = window.innerWidth <= 768;
+                const qualityFactor = density / 6;  // density = 12 时，qualityFactor = 2.0
+                
+                // 参考代码的步长计算：更简单直接
+                // 参考代码：const step = Math.max(2, Math.floor((fontSize / 35) * qualityFactor));
+                const baseStep = fontSize / 35;  // 参考代码使用 35，而不是 50/60
+                let step = Math.max(2, Math.floor(baseStep * qualityFactor));  // 参考代码的最小值是 2
+                
+                // 确保 step 有效
+                if (!isFinite(step) || step <= 0) {
+                    step = 2; // 使用参考代码的最小值
+                }
+                
+                // 如果步长太大，强制降低（确保能采样到文字）
+                const maxStep = Math.max(2, Math.floor(fontSize / 20)); // 保留作为安全措施
+                if (step > maxStep) {
+                    step = maxStep;
+                    console.log('步长过大，已限制为:', step, 'fontSize:', fontSize);
+                }
+                
+                // 采样函数 - 参考代码的逻辑：简单直接
+                // 关键修复：使用整数尺寸进行采样
+                const sampleParticles = (sampleStep, alphaThreshold) => {
+                    const particles = [];
+                    for (let y = 0; y < workingHeight; y += sampleStep) {
+                        for (let x = 0; x < workingWidth; x += sampleStep) {
+                            const index = (y * workingWidth + x) * 4;
+                            if (data[index + 3] > alphaThreshold) {
+                                particles.push(new Particle(x, y, workingWidth, workingHeight));
+                            }
+                        }
+                    }
+                    return particles;
+                };
+                
+                // 参考代码使用固定阈值 128，更可靠
+                // 参考代码：if (data[index + 3] > 128)
+                let sampledParticles = sampleParticles(step, 128); // 使用参考代码的阈值 128
+                
+                // 如果未生成粒子，尝试更小的步长和更低的阈值（保留重试机制作为备用）
+                if (sampledParticles.length === 0) {
+                    console.warn('第一次采样失败，尝试更小的步长和更低的阈值');
+                    const smallerStep = Math.max(1, Math.floor(step / 2));
+                    sampledParticles = sampleParticles(smallerStep, 100); // 降低阈值到 100
+                    
+                    // 如果还是失败，尝试最小步长和更低阈值
+                    if (sampledParticles.length === 0) {
+                        console.warn('第二次采样失败，尝试最小步长');
+                        sampledParticles = sampleParticles(1, 80); // 进一步降低阈值
+                        
+                        // 如果还是失败，尝试最低阈值
+                        if (sampledParticles.length === 0) {
+                            console.warn('第三次采样失败，尝试最低阈值');
+                            sampledParticles = sampleParticles(1, 50); // 最低阈值
+                        }
+                    }
+                }
+                
+                // 将采样结果添加到 newParticles
+                newParticles.push(...sampledParticles);
+                
+                // 如果未生成粒子，清空粒子数组
+                if (newParticles.length === 0) {
+                    console.error('未生成粒子，可能文字太小或无效:', text, 'fontSize:', fontSize, 'step:', step, 'width:', workingWidth, 'height:', workingHeight);
+                    particles = [];
+                    return;
+                }
+                
+                console.log('生成粒子数量:', newParticles.length); // 调试信息
+                
+                // 限制最大粒子数量（稍微减少，视觉影响很小）
+                if (newParticles.length > 800) {  // 从 1000 减少到 800
+                    const sampleStep = Math.ceil(newParticles.length / 800);
+                    const sampledParticles = [];
+                    for (let i = 0; i < newParticles.length; i += sampleStep) {
+                        sampledParticles.push(newParticles[i]);
+                    }
+                    particles = sampledParticles.slice(0, 800);
+                } else {
+                    particles = newParticles;
+                }
+                } finally {
+                    isUpdatingParticles = false;
+                    // 恢复 resize 处理标志（延迟恢复，确保所有操作都已完成）
+                    setTimeout(() => {
+                        window.__starryResizeDisabled = previousResizeDisabled;
+                    }, 0);
+                    
+                    // 如果 ResizeObserver 被断开，在 updateParticles 执行完毕后重连
+                    // 统一在这里处理，无论是从 updateDimensions 调用还是从其他事件调用
+                    if (isResizeObserverDisconnected) {
+                        // 使用三重 requestAnimationFrame 确保完全执行完毕后再重连
+                        // 第一层：等待当前帧完成
+                        requestAnimationFrame(() => {
+                            // 第二层：再等一帧
+                            requestAnimationFrame(() => {
+                                // 第三层：再等一帧，确保所有操作都已完成
+                                requestAnimationFrame(() => {
+                                    // 再次检查，确保所有更新都已完成
+                                    if (!isUpdatingDimensions && !isUpdatingParticles && isResizeObserverDisconnected) {
+                                        resizeObserver.observe(header);
+                                        isResizeObserverDisconnected = false;
+                                    }
+                                });
+                            });
+                        });
+                    }
+                }
+            }
+            
+            // 动画循环 - GPU 优化版本（保持视觉效果）
+            let lastFrameTime = 0;
+            const targetFPS = 50; // 50fps（视觉几乎无差异，但降低 GPU 负担）
+            const frameInterval = 1000 / targetFPS;
+            
+            function getGradient(width, height) {
+                if (cachedGradient && 
+                    cachedGradientSize.width === width && 
+                    cachedGradientSize.height === height) {
+                    return cachedGradient;
+                }
+                
+                const gradient = ctx.createRadialGradient(
+                    width / 2, height / 2, width / 4,
+                    width / 2, height / 2, Math.max(width, height)
+                );
+                gradient.addColorStop(0, 'rgba(0,0,0,0)');
+                gradient.addColorStop(1, 'rgba(0,0,0,0.5)');
+                
+                cachedGradient = gradient;
+                cachedGradientSize = { width, height };
+                return gradient;
+            }
+            
+            function animate(currentTime) {
+                // 帧率限制（降低 GPU 负担，但保持流畅）
+                const elapsed = currentTime - lastFrameTime;
+                if (elapsed < frameInterval) {
+                    animationId = requestAnimationFrame(animate);
+                    return;
+                }
+                lastFrameTime = currentTime - (elapsed % frameInterval);
+                
+                // 关键修复：使用整数尺寸，确保与粒子创建时的尺寸一致
+                const canvasWidth = Math.floor(canvas.width);
+                const canvasHeight = Math.floor(canvas.height);
+                
+                // 清除画布
+                ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+                
+                // 使用缓存的渐晕效果（不影响视觉效果）
+                const gradient = getGradient(canvasWidth, canvasHeight);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+                
+                // 绘制背景星星（数量已大幅减少）
+                bgStars.forEach(star => {
+                    star.update(canvasWidth, canvasHeight);
+                    star.draw(ctx);
+                });
+                
+                // 绘制前景粒子
+                ctx.globalCompositeOperation = 'lighter';
+                particles.forEach(p => {
+                    p.update(mouse, canvasWidth, canvasHeight);
+                    p.draw(ctx);
+                });
+                
+                // 星座连线 - 进一步优化（减少计算量，但保持连线效果）
+                if (showConstellations && particles.length > 0) {
+                    ctx.strokeStyle = 'rgba(130, 210, 255, 0.15)';
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath();
+                    
+                    const particleCount = particles.length;
+                    const lookAhead = Math.min(18, Math.floor(particleCount / 12));  // 从 10 改为 12，稍微减少检查范围
+                    const maxDist = 50;
+                    const maxDistSq = maxDist * maxDist;
+                    
+                    // 稍微减少检查频率
+                    const checkInterval = Math.max(1, Math.floor(particleCount / 350));  // 从 300 改为 350
+                    
+                    for (let i = 0; i < particleCount; i += checkInterval) {
+                        const p1 = particles[i];
+                        const endJ = Math.min(i + lookAhead, particleCount);
+                        
+                        for (let j = i + checkInterval; j < endJ; j += checkInterval) {
+                            const p2 = particles[j];
+                            
+                            const dx = p1.x - p2.x;
+                            const dy = p1.y - p2.y;
+                            
+                            if (Math.abs(dx) > maxDist || Math.abs(dy) > maxDist) continue;
+                            
+                            const distSq = dx * dx + dy * dy;
+                            
+                            if (distSq < maxDistSq) {
+                                if ((i * j + i) % 9 === 0) {  // 从 8 改为 9，稍微减少连线
+                                    ctx.moveTo(p1.x, p1.y);
+                                    ctx.lineTo(p2.x, p2.y);
+                                }
+                            }
+                        }
+                    }
+                    ctx.stroke();
+                }
+                
+                ctx.globalCompositeOperation = 'source-over';
+                animationId = requestAnimationFrame(animate);
+            }
+            
+            // 鼠标/触摸交互
+            function getRelativeCoords(clientX, clientY) {
+                const rect = canvas.getBoundingClientRect();
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            }
+            
+            function handleMouseMove(e) {
+                mouse = getRelativeCoords(e.clientX, e.clientY);
+            }
+            
+            function handleTouchMove(e) {
+                if (e.touches.length > 0) {
+                    mouse = getRelativeCoords(e.touches[0].clientX, e.touches[0].clientY);
+                }
+            }
+            
+            function handleMouseLeave() {
+                mouse = { x: null, y: null };
+            }
+            
+            function handleTouchEnd() {
+                mouse = { x: null, y: null };
+            }
+            
+            // 统一的尺寸更新函数
+            function updateDimensions() {
+                // 防止循环调用
+                if (isUpdatingDimensions) {
+                    console.warn('updateDimensions 正在执行，跳过重复调用');
+                    return;
+                }
+                
+                // 关键修复：检查嵌套深度，防止无限递归
+                if (updateDimensionsDepth > 0) {
+                    console.warn('updateDimensions 嵌套调用，深度:', updateDimensionsDepth, '跳过');
+                    return;
+                }
+                
+                // 关键修复：立即断开 ResizeObserver，防止新的回调被触发
+                // 这必须在设置任何标志之前完成，确保不会有新的回调被调度
+                if (!isResizeObserverDisconnected) {
+                    resizeObserver.disconnect();
+                    isResizeObserverDisconnected = true;
+                }
+                
+                // 关键修复：立即取消所有待处理的 resize 相关的 requestAnimationFrame
+                // 这必须在设置标志之前完成，确保不会有待处理的回调执行
+                if (resizeRafId) {
+                    cancelAnimationFrame(resizeRafId);
+                    resizeRafId = null;
+                }
+                if (resizeTimeout) {
+                    cancelAnimationFrame(resizeTimeout);
+                    resizeTimeout = null;
+                }
+                
+                updateDimensionsDepth++;
+                
+                // 关键修复：立即设置所有标志，防止新的 requestAnimationFrame 被调度
+                // 即使回调已经在执行队列中，标志也已经设置，回调会检查标志并返回
+                isUpdatingDimensions = true;
+                window.__starryUpdatingDimensions = true;
+                const previousResizeDisabled = window.__starryResizeDisabled || false;
+                window.__starryResizeDisabled = true;
+                
+                try {
+                    // 使用 getBoundingClientRect 获取实际显示尺寸，更准确
+                    const rect = header.getBoundingClientRect();
+                    const width = rect.width;
+                    const height = rect.height;
+                    
+                    if (width === 0 || height === 0) return;
+                    
+                    // 如果尺寸没有变化，不需要更新（但允许从 0 更新到实际尺寸）
+                    // 使用 Math.abs 允许 1px 的误差（避免浮点数精度问题和微小变化）
+                    const widthDiff = Math.abs(dimensions.width - width);
+                    const heightDiff = Math.abs(dimensions.height - height);
+                    if (widthDiff < 1 && heightDiff < 1 && dimensions.width > 0) {
+                        return; // 尺寸基本没变化，跳过更新
+                    }
+                    
+                    dimensions = { width, height };
+                    
+                    // 清除渐晕缓存（尺寸改变时需要重新创建）
+                    cachedGradient = null;
+                    cachedGradientSize = { width: 0, height: 0 };
+                    
+                    // 注意：ResizeObserver 已经在 updateDimensions 开始时断开了
+                    // 这里不需要再次断开
+                    
+                    // 立即更新 Canvas 内部尺寸，确保匹配（关键：必须在更新粒子前设置）
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // 不要在这里重连 ResizeObserver，让 finally 块统一处理
+                    // 移除这里的 setTimeout 重连逻辑，避免重复重连
+                    
+                    // 重新初始化背景星星
+                    bgStars = [];
+                    for (let i = 0; i < STARRY_CONFIG.bgStarCount; i++) {
+                        bgStars.push(new BackgroundStar(width, height));
+                    }
+                    
+                    // 更新粒子（传入尺寸参数，避免再次获取 getBoundingClientRect）
+                    updateParticles(width, height);
+                } finally {
+                    updateDimensionsDepth--;
+                    isUpdatingDimensions = false;
+                    // 清除特殊标志
+                    window.__starryUpdatingDimensions = false;
+                    // 恢复 resize 处理标志（延迟恢复，确保所有操作都已完成）
+                    // 注意：updateParticles 的 finally 块也会恢复标志，但这里确保在 updateDimensions 完成后也恢复
+                    setTimeout(() => {
+                        // 只有在 updateParticles 也完成后才恢复（通过检查 isUpdatingParticles）
+                        if (!isUpdatingParticles) {
+                            window.__starryResizeDisabled = previousResizeDisabled;
+                        }
+                    }, 0);
+                }
+            }
+            
+            // ResizeObserver 监听容器尺寸
+            let resizeRafId = null;
+            const resizeObserver = new ResizeObserver((entries) => {
+                if (!entries || entries.length === 0) return;
+                
+                // 关键修复：在调度 requestAnimationFrame 之前就检查所有标志和嵌套深度
+                // 这样可以防止在 updateParticles 执行期间调度新的 requestAnimationFrame
+                if (window.__starryResizeDisabled || window.__starryUpdatingDimensions || isUpdatingDimensions || isUpdatingParticles || updateDimensionsDepth > 0) {
+                    if (resizeRafId) {
+                        cancelAnimationFrame(resizeRafId);
+                        resizeRafId = null;
+                    }
+                    return;
+                }
+                
+                // 使用 requestAnimationFrame 确保在下一帧更新（更可靠且及时）
+                if (resizeRafId) {
+                    cancelAnimationFrame(resizeRafId);
+                }
+                resizeRafId = requestAnimationFrame(() => {
+                    resizeRafId = null; // 立即清空，防止重复取消
+                    // 关键修复：立即检查所有标志和嵌套深度，如果 updateDimensions 正在执行，直接返回
+                    // 这必须在任何其他操作之前检查，防止在 updateParticles 执行期间调用 updateDimensions
+                    if (window.__starryUpdatingDimensions || window.__starryResizeDisabled || isUpdatingDimensions || isUpdatingParticles || updateDimensionsDepth > 0) {
+                        return;
+                    }
+                    updateDimensions();
+                });
+            });
+            
+            resizeObserver.observe(header);
+            
+            // 添加 window resize 事件作为备用（处理开发者工具打开/关闭等情况）
+            let resizeTimeout = null;
+            function handleWindowResize() {
+                // 关键修复：检查所有标志和嵌套深度，如果 resize 处理被禁用或正在更新，直接返回
+                // 同时取消可能已调度的 requestAnimationFrame
+                if (window.__starryResizeDisabled || window.__starryUpdatingDimensions || isUpdatingDimensions || isUpdatingParticles || updateDimensionsDepth > 0) {
+                    if (resizeTimeout) {
+                        cancelAnimationFrame(resizeTimeout);
+                        resizeTimeout = null;
+                    }
+                    return;
+                }
+                
+                // 使用 requestAnimationFrame 确保及时响应
+                if (resizeTimeout) {
+                    cancelAnimationFrame(resizeTimeout);
+                }
+                resizeTimeout = requestAnimationFrame(() => {
+                    resizeTimeout = null; // 立即清空，防止重复取消
+                    // 关键修复：立即检查所有标志和嵌套深度，如果 updateDimensions 正在执行，直接返回
+                    // 这必须在任何其他操作之前检查，防止在 updateParticles 执行期间调用 updateDimensions
+                    if (window.__starryUpdatingDimensions || window.__starryResizeDisabled || isUpdatingDimensions || isUpdatingParticles || updateDimensionsDepth > 0) {
+                        return;
+                    }
+                    updateDimensions();
+                });
+            }
+            
+            window.addEventListener('resize', handleWindowResize);
+            
+            // 监听移动端屏幕旋转
+            window.addEventListener('orientationchange', () => {
+                // 屏幕旋转后需要等待布局完成
+                setTimeout(() => {
+                    // 检查所有标志和嵌套深度，避免在更新期间触发
+                    if (!window.__starryUpdatingDimensions && !window.__starryResizeDisabled && !isUpdatingDimensions && !isUpdatingParticles && updateDimensionsDepth === 0) {
+                        updateDimensions();
+                    }
+                }, 100);
+            });
+            
+            // 初始化时强制更新一次尺寸（确保首次加载正确）
+            setTimeout(() => {
+                updateDimensions();
+            }, 100);
+            
+            // 绑定事件
+            canvas.addEventListener('mousemove', handleMouseMove);
+            canvas.addEventListener('touchmove', handleTouchMove);
+            canvas.addEventListener('mouseleave', handleMouseLeave);
+            canvas.addEventListener('touchend', handleTouchEnd);
+            
+            // 启动动画（使用帧率限制）
+            animate(performance.now());
+            
+            // 控制面板事件处理
+            const textInput = document.getElementById('starry-text');
+            const headerTextInput = document.getElementById('header-text-input');
+            const toggleConstellations = document.getElementById('toggle-constellations');
+            const toggleDensity = document.getElementById('toggle-density');
+            
+            // 顶部输入框事件处理
+            if (headerTextInput) {
+                headerTextInput.addEventListener('input', (e) => {
+                    const inputValue = e.target.value.trim();
+                    // 确保 text 不为空，如果为空则使用默认值
+                    const newText = inputValue ? inputValue.toUpperCase() : 'MG-MANGO';
+                    // 只有当文字真正改变时才更新
+                    if (newText !== text) {
+                        text = newText;
+                        console.log('输入框文字更新:', text); // 调试信息
+                        // 立即更新粒子
+                        updateParticles();
+                    }
+                    // 同步到控制面板输入框（如果存在）
+                    if (textInput) {
+                        textInput.value = text;
+                    }
+                });
+            }
+            
+            // 原有控制面板输入框（如果显示的话）
+            if (textInput) {
+                textInput.addEventListener('input', (e) => {
+                    const inputValue = e.target.value.trim();
+                    // 确保 text 不为空，如果为空则使用默认值
+                    text = inputValue ? inputValue.toUpperCase() : 'MG-MANGO';
+                    // 立即更新粒子
+                    updateParticles();
+                    // 同步到顶部输入框
+                    if (headerTextInput) {
+                        headerTextInput.value = text;
+                    }
+                });
+            }
+            
+            if (toggleConstellations) {
+                toggleConstellations.addEventListener('click', () => {
+                    showConstellations = !showConstellations;
+                    toggleConstellations.classList.toggle('active');
+                });
+            }
+            
+            if (toggleDensity) {
+                toggleDensity.addEventListener('click', () => {
+                    density = density === 6 ? 10 : 6;
+                    toggleDensity.textContent = density === 6 ? 'HIGH' : 'LOW';
+                    toggleDensity.classList.toggle('active');
+                    updateParticles();
+                });
+            }
+        }
+        
+        // ========================================================
+        // 🎬 视频播放控制函数（移动端优化）
+        // ========================================================
+        
+        // 调试模式标志（生产环境设为 false）
+        const DEBUG = true;
+        
+        // 调试日志函数
+        function debugLog(...args) {
+            if (DEBUG) console.log(...args);
+        }
+        
+        function debugError(...args) {
+            if (DEBUG) console.error(...args);
+        }
+        
+        // 检测是否为移动端
+        function isMobileDevice() {
+            return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        }
+        
+        // 生成封面图路径
+        function getCoverImagePath(videoFile, coverFile, assetPath) {
+            // 如果 JSON 中指定了封面图，直接使用
+            if (coverFile && coverFile.trim() !== '') {
+                return assetPath + coverFile;
+            }
+            
+            // 否则从视频文件名生成封面图路径
+            // 支持多种格式：demo_video.mp4 -> demo_video.jpg / demo_video_cover.jpg / demo_video.png
+            const baseName = videoFile.replace(/\.[^/.]+$/, ''); // 去掉扩展名
+            
+            // 尝试常见的封面图命名规则
+            // 优先：原文件名 + _cover.jpg
+            // 其次：原文件名 + .jpg
+            return assetPath + baseName + '_cover.jpg';
+        }
+        
+        // 加载并播放视频（移动端优化 - 点击后加载）
+        function loadAndPlayVideo(videoId, videoSrc, placeholderId) {
+            const video = document.getElementById(videoId);
+            const placeholder = placeholderId ? document.getElementById(placeholderId) : null;
+            
+            if (!video) {
+                debugError('视频元素不存在:', videoId);
+                return;
+            }
+            
+            // 如果视频正在加载或播放，直接返回
+            if (video.classList.contains('loading') || (!video.paused && video.readyState >= 2)) {
+                return;
+            }
+            
+            // 如果视频还没有加载，先加载视频源
+            const currentSrc = video.src || video.getAttribute('src') || '';
+            if (!currentSrc || currentSrc !== videoSrc) {
+                // 标记为加载中
+                video.classList.add('loading');
+                
+                // 显示加载提示（如果还没有）
+                if (placeholder) {
+                    let loadingDiv = placeholder.querySelector('.video-loading');
+                    if (!loadingDiv) {
+                        loadingDiv = document.createElement('div');
+                        loadingDiv.className = 'video-loading';
+                        loadingDiv.textContent = '加载中...';
+                        placeholder.appendChild(loadingDiv);
+                    } else {
+                        loadingDiv.textContent = '加载中...';
+                        loadingDiv.style.display = 'block';
+                    }
+                    // 隐藏播放按钮
+                    const playBtn = placeholder.querySelector('.play-button-large');
+                    if (playBtn) {
+                        playBtn.style.display = 'none';
+                    }
+                    placeholder.style.display = 'flex';
+                }
+                
+                // 设置视频源并加载
+                video.setAttribute('src', videoSrc);
+                video.load();
+                
+                // 等待视频可以播放（canplay 比 loadeddata 更好，确保可以播放）
+                const onCanPlay = function() {
+                    video.classList.remove('loading');
+                    video.classList.add('playing');
+                    
+                    if (placeholder) {
+                        const loadingDiv = placeholder.querySelector('.video-loading');
+                        if (loadingDiv) {
+                            loadingDiv.remove();
+                        }
+                        // 隐藏封面图
+                        const coverImg = placeholder.querySelector('.video-cover');
+                        if (coverImg) {
+                            coverImg.style.display = 'none';
+                        }
+                        placeholder.style.display = 'none';
+                    }
+                    video.style.display = 'block';
+                    
+                    // 开始播放
+                    const playPromise = video.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            debugLog('视频播放成功');
+                        }).catch(err => {
+                            debugLog('播放失败:', err);
+                            // 如果自动播放失败，显示播放按钮
+                        if (placeholder) {
+                            placeholder.style.display = 'flex';
+                            const playBtn = placeholder.querySelector('.play-button-large');
+                            if (playBtn) {
+                                playBtn.style.display = 'flex';
+                            }
+                        }
+                    });
+                    }
+                };
+                
+                video.addEventListener('canplay', onCanPlay, { once: true });
+                
+                // 也监听 loadeddata 作为备选
+                const onLoadedData = function() {
+                    if (video.readyState >= 2 && !video.classList.contains('playing')) {
+                        // 如果 canplay 还没触发，等待一下
+                        setTimeout(() => {
+                            if (!video.classList.contains('playing') && video.readyState >= 2) {
+                                onCanPlay();
+                            }
+                        }, 100);
+                    }
+                };
+                video.addEventListener('loadeddata', onLoadedData, { once: true });
+                
+                // 错误处理
+                const onError = function(e) {
+                    debugError('视频加载错误:', e, videoSrc);
+                    video.classList.remove('loading');
+                    if (placeholder) {
+                        const loadingDiv = placeholder.querySelector('.video-loading');
+                        if (loadingDiv) {
+                            loadingDiv.textContent = '加载失败，点击重试';
+                        } else {
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'video-loading';
+                            errorDiv.textContent = '加载失败，点击重试';
+                            placeholder.appendChild(errorDiv);
+                        }
+                        const playBtn = placeholder.querySelector('.play-button-large');
+                        if (playBtn) {
+                            playBtn.style.display = 'flex';
+                        }
+                        placeholder.style.display = 'flex';
+                    }
+                    // 清除错误的 src
+                    video.removeAttribute('src');
+                    video.load();
+                };
+                
+                video.addEventListener('error', onError, { once: true });
+            } else {
+                // 视频已加载，直接播放
+                if (placeholder) {
+                    // 隐藏封面图
+                    const coverImg = placeholder.querySelector('.video-cover');
+                    if (coverImg) {
+                        coverImg.style.display = 'none';
+                    }
+                    placeholder.style.display = 'none';
+                }
+                video.style.display = 'block';
+                video.classList.add('playing');
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(err => {
+                        debugLog('播放失败:', err);
+                        if (placeholder) {
+                            placeholder.style.display = 'flex';
+                            const coverImg = placeholder.querySelector('.video-cover');
+                            if (coverImg) {
+                                coverImg.style.display = 'block';
+                            }
+                        }
+                    });
+                }
+            }
+        }
+        
+        // ========================================================
+        // 🔧 工具函数：视频高度计算
+        // ========================================================
+        function calculateVideoHeight(video, container, placeholder, coverImg) {
+            let targetHeight = 0;
+            
+            // 优先使用视频的原始高度，并根据容器宽度计算显示高度（保持宽高比）
+            if (video.videoHeight > 0 && video.videoWidth > 0) {
+                const containerWidth = container ? (container.offsetWidth || container.clientWidth) : window.innerWidth;
+                const aspectRatio = video.videoHeight / video.videoWidth;
+                targetHeight = containerWidth * aspectRatio;
+                debugLog('使用视频原始尺寸:', video.videoWidth, 'x', video.videoHeight, '宽高比:', aspectRatio, '容器宽度:', containerWidth, '计算高度:', targetHeight);
+            }
+            
+            // 如果视频高度不可用，使用封面图片高度
+            if (!targetHeight || targetHeight === 0) {
+                if (coverImg) {
+                    const imgHeight = coverImg.offsetHeight || coverImg.naturalHeight;
+                    if (imgHeight > 0) {
+                        targetHeight = imgHeight;
+                        debugLog('使用封面图片高度:', targetHeight);
+                    }
+                }
+            }
+            
+            // 如果仍然没有高度，使用占位符或容器高度
+            if (!targetHeight || targetHeight === 0) {
+                targetHeight = placeholder.offsetHeight || (container ? container.offsetHeight : 300);
+                debugLog('使用占位符/容器高度:', targetHeight);
+            }
+            
+            debugLog('最终高度:', targetHeight, '视频尺寸:', video.videoWidth + 'x' + video.videoHeight, '封面图片高度:', coverImg ? (coverImg.offsetHeight || coverImg.naturalHeight) : '无');
+            return targetHeight;
+        }
+        
+        // ========================================================
+        // 🔧 工具函数：淡入淡出过渡
+        // ========================================================
+        function fadeInVideo(video, placeholder, container, targetHeight) {
+            // 强制优先使用占位符的当前实际显示高度（占位符已经包含了封面图）
+            // 这是最可靠的方法，因为占位符的高度就是封面图的实际显示高度
+            let finalHeight = 0;
+            
+            // 优先使用封面图的当前显示高度（确保与封面图保持一致）
+            const coverImg = placeholder.querySelector('.video-cover');
+            if (coverImg) {
+                let coverCurrentHeight = coverImg.offsetHeight || coverImg.clientHeight;
+                
+                // 如果 offsetHeight 不可用，使用 getBoundingClientRect 获取封面图的实际显示尺寸
+                if (!coverCurrentHeight || coverCurrentHeight === 0) {
+                    const coverRect = coverImg.getBoundingClientRect();
+                    coverCurrentHeight = coverRect.height;
+                }
+                
+                // 如果仍然为0，使用封面图的显示宽度和宽高比计算
+                if (!coverCurrentHeight || coverCurrentHeight === 0) {
+                    const coverRect = coverImg.getBoundingClientRect();
+                    const coverDisplayWidth = coverRect.width || coverImg.offsetWidth || (container ? container.offsetWidth : 0);
+                    if (coverDisplayWidth > 0 && coverImg.naturalHeight > 0 && coverImg.naturalWidth > 0) {
+                        const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
+                        coverCurrentHeight = coverDisplayWidth * aspectRatio;
+                        debugLog('使用封面图显示宽度计算高度:', coverCurrentHeight, '显示宽度:', coverDisplayWidth, '原始尺寸:', coverImg.naturalWidth + 'x' + coverImg.naturalHeight);
+                    } else if (coverImg.naturalHeight > 0 && coverImg.naturalWidth > 0) {
+                        // 最后备选：使用容器宽度和宽高比计算
+                        const containerWidth = container ? (container.offsetWidth || container.clientWidth) : window.innerWidth;
+                        const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
+                        coverCurrentHeight = containerWidth * aspectRatio;
+                        debugLog('使用容器宽度计算高度（备选）:', coverCurrentHeight, '容器宽度:', containerWidth);
+                    }
+                }
+                
+                if (coverCurrentHeight > 0) {
+                    finalHeight = coverCurrentHeight;
+                    debugLog('fadeInVideo: 使用封面图当前高度:', finalHeight);
+                }
+            }
+            
+            // 如果封面图高度不可用，使用点击时保存的高度（作为后备）
+            if (!finalHeight || finalHeight === 0) {
+                const savedHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                if (savedHeight > 0) {
+                    finalHeight = savedHeight;
+                    debugLog('fadeInVideo: 使用点击时保存的高度（后备）:', finalHeight);
+                }
+            }
+            
+            // 如果保存的高度也不可用，使用占位符的当前高度（在改变定位之前获取）
+            if (!finalHeight || finalHeight === 0) {
+                let placeholderCurrentHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                
+                // 如果 offsetHeight 为0，使用 getBoundingClientRect 获取实际渲染高度
+                if (!placeholderCurrentHeight || placeholderCurrentHeight === 0) {
+                    const rect = placeholder.getBoundingClientRect();
+                    placeholderCurrentHeight = rect.height;
+                    debugLog('fadeInVideo: 使用 getBoundingClientRect 获取占位符高度:', placeholderCurrentHeight);
+                }
+                
+                if (placeholderCurrentHeight > 0) {
+                    finalHeight = placeholderCurrentHeight;
+                    debugLog('fadeInVideo: 使用占位符当前高度:', finalHeight, '计算高度:', targetHeight);
+                }
+            }
+            
+            // 如果仍然没有高度，使用传入的 targetHeight
+            if (!finalHeight || finalHeight === 0) {
+                finalHeight = targetHeight || 300;
+                debugLog('使用计算高度:', finalHeight);
+            }
+            
+            // 先设置容器高度，防止塌陷（必须在改变占位符位置之前）
+            if (container && finalHeight > 0) {
+                // 在移动端，container 就是 .media-box，所以需要同时设置
+                container.style.height = finalHeight + 'px';
+                container.style.minHeight = finalHeight + 'px';
+                container.style.maxHeight = finalHeight + 'px'; // 添加最大高度限制，防止缩小
+                container.style.position = 'relative'; // 确保容器是定位上下文
+                
+                // 如果容器有 .media-box 父元素，也设置其高度（移动端 container 就是 .media-box）
+                const mediaBox = container.closest('.media-box');
+                if (mediaBox && mediaBox !== container) {
+                    mediaBox.style.height = finalHeight + 'px';
+                    mediaBox.style.minHeight = finalHeight + 'px';
+                    mediaBox.style.maxHeight = finalHeight + 'px';
+                }
+            }
+            
+            // 使用 requestAnimationFrame 确保容器高度已被浏览器应用
+            // 然后再改变占位符位置，避免缩小
+            requestAnimationFrame(() => {
+                // 再次确认并设置容器高度，确保高度被正确应用
+                if (container && finalHeight > 0) {
+                    container.style.height = finalHeight + 'px';
+                    container.style.minHeight = finalHeight + 'px';
+                    container.style.maxHeight = finalHeight + 'px';
+                    
+                    // 如果容器有 .media-box 父元素，也设置其高度（移动端 container 就是 .media-box）
+                    const mediaBox = container.closest('.media-box');
+                    if (mediaBox && mediaBox !== container) {
+                        mediaBox.style.height = finalHeight + 'px';
+                        mediaBox.style.minHeight = finalHeight + 'px';
+                        mediaBox.style.maxHeight = finalHeight + 'px';
+                    }
+                    
+                    // 强制浏览器应用容器高度样式（通过读取 offsetHeight 触发重排）
+                    void container.offsetHeight;
+                }
+                
+                // 先让占位符改为绝对定位，准备淡出（保持当前高度）
+                // 在改变位置之前，先设置高度，确保高度不会丢失
+                placeholder.style.height = finalHeight + 'px';
+                placeholder.style.minHeight = finalHeight + 'px';
+                placeholder.style.maxHeight = finalHeight + 'px';
+                placeholder.style.position = 'absolute';
+                placeholder.style.top = '0';
+                placeholder.style.left = '0';
+                placeholder.style.width = '100%';
+                placeholder.style.pointerEvents = 'none';
+                // 使用更平滑的缓动函数和更长的过渡时间（0.7s cubic-bezier）
+                placeholder.style.transition = 'opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
+                
+                // 设置视频元素的高度和位置，初始透明度为0（准备淡入，使用相同高度）
+                video.style.position = 'absolute';
+                video.style.top = '0';
+                video.style.left = '0';
+                video.style.width = '100%';
+                video.style.height = finalHeight + 'px';
+                video.style.minHeight = finalHeight + 'px'; // 添加最小高度限制
+                video.style.maxHeight = finalHeight + 'px'; // 添加最大高度限制，防止缩小
+                video.style.display = 'block';
+                video.style.zIndex = '11';
+                video.style.opacity = '0';
+                // 使用更平滑的缓动函数和更长的过渡时间（0.7s cubic-bezier）
+                video.style.transition = 'opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1)';
+                video.classList.add('playing');
+                
+                // 强制浏览器应用所有样式（通过读取 offsetHeight 触发重排）
+                void placeholder.offsetHeight;
+                void video.offsetHeight;
+                
+                // 确保视频完全准备好后再开始淡入淡出
+                // 使用 requestAnimationFrame 确保样式已应用，然后触发交叉淡入淡出
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        // 再等待一小段时间确保视频帧已准备好
+                        setTimeout(() => {
+                            // 同时触发占位符淡出和视频淡入
+                            placeholder.style.opacity = '0';
+                            video.style.opacity = '1';
+                        }, 50); // 50ms 延迟确保视频帧准备好
+                    });
+                });
+            });
+        }
+        
+        // ========================================================
+        // 🔧 工具函数：恢复视频状态（错误处理）
+        // ========================================================
+        function resetVideoState(video, placeholder, container) {
+            // 恢复视频样式
+            video.style.display = 'none';
+            video.style.position = '';
+            video.style.top = '';
+            video.style.left = '';
+            video.style.width = '';
+            video.style.height = '';
+            video.style.minHeight = '';
+            video.style.maxHeight = '';
+            video.style.opacity = '';
+            video.style.transition = '';
+            video.classList.remove('playing');
+            
+            // 恢复容器高度和样式
+            if (container) {
+                container.style.height = '';
+                container.style.minHeight = '';
+                container.style.maxHeight = '';
+                container.style.position = '';
+                
+                // 恢复 .media-box 的高度（如果存在）
+                const mediaBox = container.closest('.media-box');
+                if (mediaBox && mediaBox !== container) {
+                    mediaBox.style.height = '';
+                    mediaBox.style.minHeight = '';
+                    mediaBox.style.maxHeight = '';
+                }
+            }
+            
+            // 恢复占位符样式
+            placeholder.style.position = 'relative';
+            placeholder.style.width = '100%';
+            placeholder.style.height = 'auto';
+            placeholder.style.minHeight = '';
+            placeholder.style.maxHeight = '';
+            placeholder.style.opacity = '1';
+            placeholder.style.pointerEvents = 'auto';
+            placeholder.style.display = 'block';
+            placeholder.style.transition = '';
+            
+            // 清除保存的高度数据
+            if (placeholder.dataset.savedHeight) {
+                delete placeholder.dataset.savedHeight;
+            }
+        }
+        
+        // ========================================================
+        // 🎬 移动端视频点击播放函数
+        // ========================================================
+        function handleMobileVideoClick(videoId, videoSrc, placeholderId) {
+            debugLog('点击播放视频:', videoId, videoSrc);
+            const video = document.getElementById(videoId);
+            const placeholder = document.getElementById(placeholderId);
+            
+            if (!video || !placeholder) {
+                debugError('找不到视频或占位符:', { videoId, placeholderId });
+                return;
+            }
+            
+            // 如果视频正在播放，不做任何操作
+            if (!video.paused && video.readyState >= 2) {
+                debugLog('视频已在播放，跳过');
+                return;
+            }
+            
+            // 缓存常用元素，避免重复查询
+            const container = placeholder.closest('.video-container');
+            const coverImg = placeholder.querySelector('.video-cover');
+            
+            // 添加点击标记，让封面图变为彩色
+            placeholder.classList.add('clicked');
+            
+            // 立即保存占位符和封面图的当前高度（在改变任何样式之前）
+            // 使用 data 属性保存，确保后续可以获取
+            const placeholderHeight = placeholder.offsetHeight || placeholder.clientHeight;
+            const placeholderRect = placeholder.getBoundingClientRect();
+            const savedHeight = placeholderRect.height > 0 ? placeholderRect.height : placeholderHeight;
+            
+            // coverImg 已在上面声明，直接使用
+            let savedCoverHeight = 0;
+            if (coverImg) {
+                savedCoverHeight = coverImg.offsetHeight || coverImg.clientHeight;
+                if (!savedCoverHeight || savedCoverHeight === 0) {
+                    const coverRect = coverImg.getBoundingClientRect();
+                    savedCoverHeight = coverRect.height;
+                }
+                // 如果仍然为0，使用 naturalHeight（如果图片已加载）
+                if (!savedCoverHeight && coverImg.complete && coverImg.naturalHeight > 0) {
+                    const coverRect = coverImg.getBoundingClientRect();
+                    const coverWidth = coverRect.width || coverImg.offsetWidth || (container ? container.offsetWidth : 0);
+                    if (coverWidth > 0 && coverImg.naturalWidth > 0) {
+                        const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
+                        savedCoverHeight = coverWidth * aspectRatio;
+                    }
+                }
+            }
+            
+            // 保存到占位符的 data 属性中
+            const finalSavedHeight = savedCoverHeight > 0 ? savedCoverHeight : (savedHeight > 0 ? savedHeight : 0);
+            if (finalSavedHeight > 0) {
+                placeholder.dataset.savedHeight = finalSavedHeight.toString();
+                debugLog('点击时保存的高度:', finalSavedHeight, '占位符高度:', savedHeight, '封面图高度:', savedCoverHeight);
+            }
+            
+            // 不显示加载提示，封面图保持可见直到视频加载完成
+            // 确保封面图可见且可点击状态
+            placeholder.style.opacity = '1';
+            placeholder.style.pointerEvents = 'auto';
+            
+            // 设置视频源并加载
+            if (!video.src || video.src !== videoSrc) {
+                debugLog('设置视频源:', videoSrc);
+                video.src = videoSrc;
+                video.load();
+                
+                // 添加错误处理
+                const onError = function(e) {
+                    debugError('视频加载错误:', e, videoSrc);
+                    video.removeEventListener('error', onError);
+                    // 仅在出错时显示错误提示
+                    let errorDiv = placeholder.querySelector('.video-loading');
+                    if (!errorDiv) {
+                        errorDiv = document.createElement('div');
+                        errorDiv.className = 'video-loading';
+                        errorDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 5px; z-index: 100; font-size: 14px;';
+                        placeholder.appendChild(errorDiv);
+                    }
+                    errorDiv.textContent = '加载失败，点击重试';
+                    errorDiv.style.display = 'block';
+                    // 使用工具函数恢复状态
+                    resetVideoState(video, placeholder, container);
+                };
+                
+                video.addEventListener('error', onError, { once: true });
+                
+                // 等待视频完全加载好（canplaythrough 确保可以流畅播放到结尾）
+                const onCanPlayThrough = function() {
+                    debugLog('视频完全加载好:', video.id, 'readyState:', video.readyState);
+                    video.removeEventListener('canplaythrough', onCanPlayThrough);
+                    video.removeEventListener('error', onError);
+                    
+                    // 确保视频的 readyState 足够高（HAVE_ENOUGH_DATA = 4）
+                    if (video.readyState >= 4) {
+                        // 优先使用点击时保存的高度（最可靠）
+                        let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                        
+                        if (placeholderActualHeight > 0) {
+                            debugLog('onCanPlayThrough: 使用点击时保存的高度:', placeholderActualHeight);
+                        } else {
+                            // 如果保存的高度不可用，获取占位符的实际显示高度（在改变任何样式之前）
+                            placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                            
+                            // 如果 offsetHeight 为0，使用 getBoundingClientRect 获取实际渲染高度
+                            if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                const rect = placeholder.getBoundingClientRect();
+                                placeholderActualHeight = rect.height;
+                                debugLog('使用 getBoundingClientRect 获取占位符高度:', placeholderActualHeight);
+                            }
+                            
+                            // 如果仍然没有高度，使用封面图的高度
+                            if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                if (coverImg) {
+                                    placeholderActualHeight = coverImg.offsetHeight || coverImg.clientHeight;
+                                    if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                        // 使用 getBoundingClientRect 获取封面图的实际显示尺寸
+                                        const coverRect = coverImg.getBoundingClientRect();
+                                        const coverDisplayHeight = coverRect.height;
+                                        const coverDisplayWidth = coverRect.width;
+                                        
+                                        if (coverDisplayHeight > 0) {
+                                            // 如果 getBoundingClientRect 能获取到高度，直接使用
+                                            placeholderActualHeight = coverDisplayHeight;
+                                            debugLog('使用封面图 getBoundingClientRect 高度:', placeholderActualHeight);
+                                        } else if (coverDisplayWidth > 0 && coverImg.naturalHeight > 0 && coverImg.naturalWidth > 0) {
+                                            // 如果高度为0，使用封面图的实际显示宽度和宽高比计算
+                                            const aspectRatio = coverImg.naturalHeight / coverImg.naturalWidth;
+                                            placeholderActualHeight = coverDisplayWidth * aspectRatio;
+                                            debugLog('使用封面图显示宽度计算高度:', placeholderActualHeight, '显示宽度:', coverDisplayWidth);
+                                        }
+                                    }
+                                    debugLog('使用封面图高度:', placeholderActualHeight);
+                                }
+                            }
+                        }
+                        
+                        // 使用工具函数计算高度（作为后备）
+                        const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                        
+                        // 优先使用占位符的实际高度，如果没有则使用计算高度
+                        const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                        debugLog('最终使用高度:', finalTargetHeight, '占位符高度:', placeholderActualHeight, '计算高度:', targetHeight);
+                        
+                        // 使用工具函数执行淡入淡出过渡
+                        fadeInVideo(video, placeholder, container, finalTargetHeight);
+                        
+                        // 开始播放
+                        const playPromise = video.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(() => {
+                                debugLog('移动端视频播放成功:', video.id);
+                            }).catch(err => {
+                                debugLog('播放失败:', err, video.id);
+                                // 使用工具函数恢复状态
+                                resetVideoState(video, placeholder, container);
+                                // 播放失败时，封面图会恢复显示，用户可再次点击重试
+                            });
+                        }
+                    } else {
+                        // 如果 readyState 还不够，等待一下再试
+                        debugLog('视频 readyState 不够，等待中...', video.readyState);
+                        setTimeout(() => {
+                            if (video.readyState >= 4) {
+                                // 优先使用点击时保存的高度
+                                let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                                if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                    placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                                    if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                        const rect = placeholder.getBoundingClientRect();
+                                        placeholderActualHeight = rect.height;
+                                    }
+                                }
+                                const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                                const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                                fadeInVideo(video, placeholder, container, finalTargetHeight);
+                video.play().catch(err => {
+                                    debugLog('播放失败:', err, video.id);
+                                    resetVideoState(video, placeholder, container);
+                                });
+                            }
+                        }, 100);
+                    }
+                };
+                
+                // 优先使用 canplaythrough，如果浏览器不支持则降级到 canplay
+                if ('canplaythrough' in video) {
+                    video.addEventListener('canplaythrough', onCanPlayThrough, { once: true });
+                } else {
+                    // 降级方案：使用 canplay，但等待更长时间确保视频加载更多数据
+                    const onCanPlay = function() {
+                        debugLog('视频可以播放（降级方案）:', video.id);
+                        video.removeEventListener('canplay', onCanPlay);
+                        video.removeEventListener('error', onError);
+                        // 等待额外时间确保视频加载更多数据
+                        setTimeout(() => {
+                            if (video.readyState >= 3) {
+                                // 优先使用点击时保存的高度
+                                let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                                if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                    placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                                    if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                        const rect = placeholder.getBoundingClientRect();
+                                        placeholderActualHeight = rect.height;
+                                    }
+                                }
+                                const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                                const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                                fadeInVideo(video, placeholder, container, finalTargetHeight);
+                                video.play().catch(err => {
+                                    debugLog('播放失败:', err, video.id);
+                                    resetVideoState(video, placeholder, container);
+                                });
+                            }
+                        }, 300);
+                    };
+                    video.addEventListener('canplay', onCanPlay, { once: true });
+                }
+            } else {
+                // 视频已加载，确保视频完全准备好后再播放
+                debugLog('视频已加载，检查准备状态:', video.id, 'readyState:', video.readyState);
+                
+                // 确保视频的 readyState 足够高（HAVE_ENOUGH_DATA = 4）
+                if (video.readyState >= 4) {
+                    // 优先使用点击时保存的高度
+                    let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                    if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                        placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                        if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                            const rect = placeholder.getBoundingClientRect();
+                            placeholderActualHeight = rect.height;
+                        }
+                    }
+                    // 视频已完全准备好，直接执行淡入淡出
+                    const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                    const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                    fadeInVideo(video, placeholder, container, finalTargetHeight);
+                    
+                    const playPromise = video.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            debugLog('移动端视频播放成功:', video.id);
+                        }).catch(err => {
+                            debugLog('播放失败:', err, video.id);
+                            // 使用工具函数恢复状态
+                            resetVideoState(video, placeholder, container);
+                            // 播放失败时，封面图会恢复显示，用户可再次点击重试
+                        });
+                    }
+                } else {
+                    // 视频还未完全准备好，等待 canplaythrough 事件
+                    debugLog('视频未完全准备好，等待 canplaythrough 事件:', video.id, 'readyState:', video.readyState);
+                    const onCanPlayThrough = function() {
+                        debugLog('视频已完全准备好，开始播放:', video.id);
+                        video.removeEventListener('canplaythrough', onCanPlayThrough);
+                        // 优先使用点击时保存的高度
+                        let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                        if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                            placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                            if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                const rect = placeholder.getBoundingClientRect();
+                                placeholderActualHeight = rect.height;
+                            }
+                        }
+                        const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                        const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                        fadeInVideo(video, placeholder, container, finalTargetHeight);
+                        
+                        video.play().catch(err => {
+                            debugLog('播放失败:', err, video.id);
+                            resetVideoState(video, placeholder, container);
+                        });
+                    };
+                    
+                    if ('canplaythrough' in video) {
+                        video.addEventListener('canplaythrough', onCanPlayThrough, { once: true });
+                    } else {
+                        // 降级方案：等待一段时间后检查 readyState
+                        setTimeout(() => {
+                            if (video.readyState >= 3) {
+                                // 优先使用点击时保存的高度
+                                let placeholderActualHeight = placeholder.dataset.savedHeight ? parseFloat(placeholder.dataset.savedHeight) : 0;
+                                if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                    placeholderActualHeight = placeholder.offsetHeight || placeholder.clientHeight;
+                                    if (!placeholderActualHeight || placeholderActualHeight === 0) {
+                                        const rect = placeholder.getBoundingClientRect();
+                                        placeholderActualHeight = rect.height;
+                                    }
+                                }
+                                const targetHeight = calculateVideoHeight(video, container, placeholder, coverImg);
+                                const finalTargetHeight = placeholderActualHeight > 0 ? placeholderActualHeight : targetHeight;
+                                fadeInVideo(video, placeholder, container, finalTargetHeight);
+                                video.play().catch(err => {
+                                    debugLog('播放失败:', err, video.id);
+                                    resetVideoState(video, placeholder, container);
+                                });
+                            }
+                        }, 300);
+                    }
+                }
+            }
+        }
+        
+        // 移动端视频自动播放设置（使用 Intersection Observer）
+        function setupMobileVideoAutoplay(videoId, videoSrc) {
+            const video = document.getElementById(videoId);
+            if (!video) {
+                debugError('找不到视频:', videoId);
+                return;
+            }
+            
+            // 设置视频源（如果还没有设置）
+            if (!video.src || video.src !== videoSrc) {
+                video.src = videoSrc;
+                video.load();
+            }
+            
+            // 确保视频加载第一帧（用于显示）
+            video.addEventListener('loadedmetadata', function() {
+                video.currentTime = 0.1; // 设置到 0.1 秒，确保有画面
+            }, { once: true });
+            
+            let isPlaying = false;
+            let playTimeout = null;
+            let pauseTimeout = null;
+            
+            // 创建 Intersection Observer
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        // 进入视口，自动播放
+                        if (!isPlaying && !video.paused) return; // 如果已经在播放，跳过
+                        
+                        if (playTimeout) clearTimeout(playTimeout);
+                        playTimeout = setTimeout(() => {
+                            video.play().then(() => {
+                                isPlaying = true;
+                                debugLog('移动端视频自动播放:', videoId);
+                            }).catch(err => {
+                                debugLog('移动端视频自动播放失败:', err);
+                            });
+                        }, 200); // 200ms 延迟，避免频繁触发
+                    } else {
+                        // 离开视口，暂停视频
+                        if (isPlaying || !video.paused) {
+                            if (pauseTimeout) clearTimeout(pauseTimeout);
+                            pauseTimeout = setTimeout(() => {
+                                video.pause();
+                                video.currentTime = 0; // 重置到开头
+                                isPlaying = false;
+                                debugLog('移动端视频暂停:', videoId);
+                            }, 200);
+                        }
+                    }
+                });
+            }, {
+                threshold: 0.5, // 当 50% 进入视口时触发
+                rootMargin: '0px'
+            });
+            
+            observer.observe(video);
+            
+            // 返回清理函数
+            return () => {
+                observer.disconnect();
+                if (playTimeout) clearTimeout(playTimeout);
+                if (pauseTimeout) clearTimeout(pauseTimeout);
+            };
+        }
+        
+        // 移动端图片滑动变彩色（使用 Intersection Observer）
+        function setupMobileImageColor(imgElement) {
+            if (!imgElement) {
+                debugError('找不到图片元素');
+                return;
+            }
+            
+            debugLog('设置移动端图片变彩色:', imgElement.src, imgElement);
+            
+            let isInView = false;
+            let colorTimeout = null;
+            let grayscaleTimeout = null;
+            
+            // 检查图片是否已经在视口中
+            const checkInitialView = () => {
+                const rect = imgElement.getBoundingClientRect();
+                const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+                if (isVisible && !isInView) {
+                    imgElement.classList.add('in-view');
+                    isInView = true;
+                    debugLog('图片初始已在视口，直接变为彩色:', imgElement.src);
+                }
+            };
+            
+            // 延迟检查，确保图片已渲染
+            setTimeout(checkInitialView, 100);
+            
+            // 创建 Intersection Observer
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    debugLog('Intersection Observer 触发:', entry.isIntersecting, entry.intersectionRatio, imgElement.src);
+                    if (entry.isIntersecting) {
+                        // 进入视口，变为彩色
+                        if (!isInView) {
+                            if (colorTimeout) clearTimeout(colorTimeout);
+                            colorTimeout = setTimeout(() => {
+                                imgElement.classList.add('in-view');
+                                isInView = true;
+                                debugLog('移动端图片变为彩色:', imgElement.src);
+                            }, 100); // 减少延迟到 100ms
+                        }
+                    } else {
+                        // 离开视口，变回黑白
+                        if (isInView) {
+                            if (grayscaleTimeout) clearTimeout(grayscaleTimeout);
+                            grayscaleTimeout = setTimeout(() => {
+                                imgElement.classList.remove('in-view');
+                                isInView = false;
+                                debugLog('移动端图片变回黑白:', imgElement.src);
+                            }, 100);
+                        }
+                    }
+                });
+            }, {
+                threshold: 0.3, // 降低到 30%，更容易触发
+                rootMargin: '50px' // 提前 50px 触发，让体验更流畅
+            });
+            
+            observer.observe(imgElement);
+            
+            // 返回清理函数
+            return () => {
+                observer.disconnect();
+                if (colorTimeout) clearTimeout(colorTimeout);
+                if (grayscaleTimeout) clearTimeout(grayscaleTimeout);
+            };
+        }
+        
+        // 移动端视频自动播放函数（返回 Promise）
+        function autoPlayMobileVideo(video, videoSrc, placeholder) {
+            return new Promise((resolve, reject) => {
+                debugLog('尝试自动播放视频:', video.id, '当前状态:', {
+                    paused: video.paused,
+                    readyState: video.readyState,
+                    src: video.src
+                });
+                
+                // 如果视频正在播放，直接返回成功
+                if (!video.paused && video.readyState >= 2) {
+                    debugLog('视频已在播放，跳过');
+                    resolve();
+                    return;
+                }
+                
+                // 如果视频元素被标记为处理中，直接返回
+                if (video.dataset.processing === 'true') {
+                    debugLog('视频正在处理中，跳过');
+                    resolve();
+                    return;
+                }
+                
+                video.dataset.processing = 'true';
+            
+            // 使用传入的 videoSrc 参数，确保有值
+            if (!videoSrc) {
+                debugError('videoSrc 参数为空:', video.id);
+                video.dataset.processing = 'false';
+                reject(new Error('videoSrc 参数为空'));
+                return;
+            }
+            
+            // 直接检查 video.src 是否为空或与 videoSrc 不同，确保设置视频源
+            debugLog('视频源检查:', {
+                videoId: video.id,
+                videoSrcParam: videoSrc,
+                videoSrcAttr: video.src,
+                dataSrc: video.getAttribute('data-src')
+            });
+            
+            if (!video.src || video.src !== videoSrc) {
+                debugLog('设置视频源:', videoSrc);
+                video.src = videoSrc;
+                video.load();
+                
+                // 等待视频可以播放
+                const onCanPlay = function() {
+                    video.removeEventListener('canplay', onCanPlay);
+                    
+                    // 先隐藏封面图
+                    if (placeholder) {
+                        placeholder.style.display = 'none';
+                    }
+                    
+                    // 显示视频并添加playing类
+                    video.style.display = 'block';
+                    video.classList.add('playing');
+                    
+                    // 开始播放
+                    const playPromise = video.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            debugLog('移动端视频自动播放成功:', video.id);
+                            video.dataset.processing = 'false';
+                            resolve();
+                        }).catch(err => {
+                            debugLog('自动播放失败:', err, video.id);
+                            // 如果自动播放失败，显示封面图，隐藏视频
+                            video.style.display = 'none';
+                            video.classList.remove('playing');
+                            video.dataset.processing = 'false';
+                            if (placeholder) {
+                                placeholder.style.display = 'block';
+                            }
+                            reject(err);
+                        });
+                    } else {
+                        video.dataset.processing = 'false';
+                        resolve();
+                    }
+                };
+                
+                video.addEventListener('canplay', onCanPlay, { once: true });
+            } else {
+                // 视频已加载，直接播放
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
+                
+                video.style.display = 'block';
+                video.classList.add('playing');
+                
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        debugLog('移动端视频自动播放成功:', video.id);
+                        video.dataset.processing = 'false';
+                        resolve();
+                    }).catch(err => {
+                        debugLog('播放失败:', err, video.id);
+                        // 如果播放失败，恢复封面图显示，隐藏视频
+                        video.style.display = 'none';
+                        video.classList.remove('playing');
+                        video.dataset.processing = 'false';
+                        if (placeholder) {
+                            placeholder.style.position = 'relative';
+                            placeholder.style.width = '100%';
+                            placeholder.style.height = 'auto';
+                            placeholder.style.opacity = '1';
+                            placeholder.style.pointerEvents = 'auto';
+                            placeholder.style.display = 'block';
+                        }
+                        reject(err);
+                    });
+                } else {
+                    video.dataset.processing = 'false';
+                    resolve();
+                }
+            }
+            });
+        }
+        
+        // 播放视频（桌面端或已加载的视频）
+        function playVideo(videoId) {
+            const video = document.getElementById(videoId);
+            if (video) {
+                const playButton = video.closest('.video-container').querySelector('.play-button');
+                video.classList.add('playing');
+                video.play().then(() => {
+                    if (playButton) {
+                        playButton.style.display = 'none';
+                    }
+                }).catch(err => {
+                    debugLog('播放失败:', err);
+                });
+            }
+        }
+
+        // 处理视频点击（移动端和桌面端）
+        function handleVideoClick(video, event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            // 如果是移动端且视频未加载，尝试加载
+            if (isMobileDevice() && (!video.src || video.src === '')) {
+                const container = video.closest('.video-container');
+                const placeholder = container ? container.querySelector('.video-placeholder') : null;
+                const placeholderId = placeholder ? placeholder.id : null;
+                const videoSrc = container ? container.getAttribute('data-video-src') : null;
+                if (videoSrc && placeholderId) {
+                    loadAndPlayVideo(video.id, videoSrc, placeholderId);
+                }
+                return;
+            }
+            
+            const container = video.closest('.video-container');
+            const playButton = container ? container.querySelector('.play-button') : null;
+            
+            if (video.paused) {
+                // 隐藏封面图
+                const placeholder = container ? container.querySelector('.video-placeholder') : null;
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
+                video.classList.add('playing');
+                video.play().then(() => {
+                    if (playButton) {
+                        playButton.style.display = 'none';
+                    }
+                }).catch(err => {
+                    debugLog('播放失败:', err);
+                    // 播放失败时显示封面图
+                    if (placeholder) {
+                        placeholder.style.display = 'flex';
+                    }
+                });
+            } else {
+                video.classList.remove('playing');
+                video.pause();
+                // 如果回到开头，显示封面图
+                if (video.currentTime === 0) {
+                    const placeholder = container ? container.querySelector('.video-placeholder') : null;
+                    if (placeholder) {
+                        placeholder.style.display = 'flex';
+                    }
+                }
+                if (playButton && window.innerWidth <= 768) {
+                    playButton.style.display = 'flex';
+                }
+            }
+        }
+
+        // 处理触摸开始（移动端）
+        let touchStartTime = 0;
+        function handleVideoTouchStart(video) {
+            touchStartTime = Date.now();
+        }
+
+        // 处理触摸结束（移动端）
+        function handleVideoTouchEnd(video, event) {
+            const touchDuration = Date.now() - touchStartTime;
+            // 短按（小于300ms）视为点击，播放视频
+            if (touchDuration < 300) {
+                if (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                // 如果是移动端且视频未加载，先加载再播放
+                if (isMobileDevice() && (!video.src || video.src === '')) {
+                    const container = video.closest('.video-container');
+                    const placeholder = container ? container.querySelector('.video-placeholder') : null;
+                    const placeholderId = placeholder ? placeholder.id : null;
+                    const videoSrc = container ? container.getAttribute('data-video-src') : null;
+                    if (videoSrc && placeholderId) {
+                        loadAndPlayVideo(video.id, videoSrc, placeholderId);
+                    }
+                } else {
+                handleVideoClick(video);
+                }
+            }
+        }
+        
+        // 处理视频悬停（桌面端优化）
+        function handleVideoHover(video) {
+            debugLog('handleVideoHover 触发', {
+                paused: video.paused,
+                currentTime: video.currentTime,
+                readyState: video.readyState
+            });
+            
+            // 如果视频正在播放，不做任何操作
+            if (!video.paused && video.currentTime > 0.5) {
+                debugLog('视频正在播放，跳过');
+                return;
+            }
+            
+            const container = video.closest('.video-container');
+            const placeholder = container ? container.querySelector('.video-placeholder') : null;
+            
+            // 立即隐藏占位符，并禁用指针事件
+            if (placeholder) {
+                placeholder.style.display = 'none';
+                placeholder.style.setProperty('display', 'none', 'important');
+                placeholder.style.pointerEvents = 'none';
+                placeholder.style.zIndex = '1'; // 降低占位符层级
+                debugLog('占位符已隐藏');
+            }
+            
+            // 确保视频元素可见且在上层
+            video.style.display = 'block';
+            video.style.zIndex = '11';
+            video.style.pointerEvents = 'auto';
+            
+            // 强制重置视频状态：先暂停，再重置时间
+            video.pause();
+            video.currentTime = 0;
+            
+            // 等待重置完成后再尝试播放
+            const tryPlay = () => {
+                // 确保占位符已隐藏且不会阻挡鼠标事件
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                    placeholder.style.setProperty('display', 'none', 'important');
+                    placeholder.style.pointerEvents = 'none';
+                    placeholder.style.zIndex = '1';
+                }
+                
+                // 确保视频可见且可以接收鼠标事件
+                video.style.display = 'block';
+                video.style.zIndex = '11';
+                video.style.pointerEvents = 'auto';
+                
+                // 再次强制重置状态
+                if (!video.paused) {
+                    video.pause();
+                }
+                if (video.currentTime > 0.1) {
+                    video.currentTime = 0;
+                }
+                
+                console.log('尝试播放，视频状态:', {
+                    paused: video.paused,
+                    currentTime: video.currentTime,
+                    readyState: video.readyState,
+                    display: video.style.display,
+                    zIndex: video.style.zIndex
+                });
+                
+                // 尝试播放
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        // 播放成功
+                        console.log('播放成功！');
+                        video.classList.add('playing');
+                        if (placeholder) {
+                            placeholder.style.display = 'none';
+                            placeholder.style.setProperty('display', 'none', 'important');
+                            placeholder.style.pointerEvents = 'none';
+                        }
+                    }).catch(err => {
+                        console.log('播放失败:', err, '视频状态:', {
+                            paused: video.paused,
+                            readyState: video.readyState,
+                            currentTime: video.currentTime,
+                            networkState: video.networkState
+                        });
+                        
+                        // 不立即显示占位符，先尝试重试
+                        // 重置视频状态并重试播放
+                        video.currentTime = 0;
+                        
+                        // 第一次重试
+                        setTimeout(() => {
+                            const retryPromise = video.play();
+                            if (retryPromise !== undefined) {
+                                retryPromise.then(() => {
+                                    // 重试成功
+                                    console.log('第一次重试成功！');
+                                    video.classList.add('playing');
+                                    if (placeholder) {
+                                        placeholder.style.display = 'none';
+                                        placeholder.style.setProperty('display', 'none', 'important');
+                                        placeholder.style.pointerEvents = 'none';
+                                    }
+                                }).catch(retryErr => {
+                                    console.log('第一次重试失败:', retryErr, '视频状态:', {
+                                        paused: video.paused,
+                                        readyState: video.readyState,
+                                        currentTime: video.currentTime
+                                    });
+                                    // 再次重试
+                                    setTimeout(() => {
+                                        video.currentTime = 0;
+                                        const secondRetryPromise = video.play();
+                                        if (secondRetryPromise !== undefined) {
+                                            secondRetryPromise.then(() => {
+                                                console.log('第二次重试成功！');
+                                                video.classList.add('playing');
+                                                if (placeholder) {
+                                                    placeholder.style.display = 'none';
+                                                    placeholder.style.setProperty('display', 'none', 'important');
+                                                    placeholder.style.pointerEvents = 'none';
+                                                }
+                                            }).catch(() => {
+                                                console.log('所有重试都失败，最终视频状态:', {
+                                                    paused: video.paused,
+                                                    readyState: video.readyState,
+                                                    currentTime: video.currentTime,
+                                                    networkState: video.networkState
+                                                });
+                                                // 所有重试都失败，才显示占位符
+                                                if (placeholder) {
+                                                    placeholder.style.display = 'flex';
+                                                    video.style.zIndex = '1';
+                                                }
+                                                video.classList.remove('playing');
+                                            });
+                                        }
+                                    }, 200);
+                                });
+                            }
+                        }, 100);
+                    });
+                } else {
+                    // 直接播放（旧浏览器）
+                    try {
+                        video.play();
+                        video.classList.add('playing');
+                        if (placeholder) {
+                            placeholder.style.display = 'none';
+                        }
+                    } catch (e) {
+                        console.log('播放失败:', e);
+                        if (placeholder) {
+                            placeholder.style.display = 'flex';
+                        }
+                    }
+                }
+            };
+            
+            // 等待视频状态重置完成后再尝试播放
+            // 使用 seeked 事件确保时间重置完成
+            const onSeeked = () => {
+                video.removeEventListener('seeked', onSeeked);
+                setTimeout(() => {
+                    tryPlay();
+                }, 50);
+            };
+            
+            // 如果视频已经在开头，直接尝试播放
+            if (video.currentTime < 0.1) {
+                setTimeout(() => {
+                    tryPlay();
+                }, 50);
+            } else {
+                // 需要等待 seeked 事件
+                video.addEventListener('seeked', onSeeked, { once: true });
+                video.currentTime = 0;
+            }
+        }
+        
+        // 处理视频悬停离开（桌面端）
+        function handleVideoHoverOut(video) {
+            // 暂停视频
+            if (!video.paused) {
+                video.pause();
+            }
+            // 移除播放状态类
+            video.classList.remove('playing');
+            
+            // 重置到开头（不重新加载视频，保持视频已加载状态）
+            if (video.currentTime > 0.1) {
+                video.currentTime = 0;
+            }
+            
+            // 显示封面图和占位符
+            setTimeout(() => {
+                const container = video.closest('.video-container');
+                if (container) {
+                    const placeholder = container.querySelector('.video-placeholder');
+                    if (placeholder) {
+                        // 显示占位符，但不让它阻挡鼠标事件（因为桌面端悬停事件在视频上）
+                        // 桌面端占位符只是视觉显示，实际鼠标事件由视频元素接收
+                        placeholder.style.display = 'flex';
+                        placeholder.style.setProperty('display', 'flex', 'important');
+                        placeholder.style.pointerEvents = 'none'; // 关键：不阻挡鼠标事件
+                        placeholder.style.zIndex = '10';
+                        // 确保封面图也显示
+                        const coverImg = placeholder.querySelector('.video-cover');
+                        if (coverImg) {
+                            coverImg.style.display = 'block';
+                        }
+                    }
+                    // 降低视频 z-index，但仍保持可接收鼠标事件
+                    video.style.zIndex = '1';
+                    video.style.pointerEvents = 'auto';
+                }
+            }, 50); // 短延迟确保重置完成
+        }
+        
+        // 处理视频可以播放（优化缓冲）
+        function handleVideoCanPlay(video) {
+            // 确保视频缓冲足够再允许播放
+            if (video.buffered.length > 0 && video.buffered.end(0) > 1) {
+                video.classList.add('ready');
+            }
+        }
+        
+        // 处理视频播放时隐藏封面图
+        function handleVideoPlay(video, placeholderId) {
+            const placeholder = placeholderId ? document.getElementById(placeholderId) : null;
+            if (placeholder) {
+                placeholder.style.display = 'none';
+                const coverImg = placeholder.querySelector('.video-cover');
+                if (coverImg) {
+                    coverImg.style.display = 'none';
+                }
+            }
+            // 确保视频在上层
+            if (video && video.style) {
+                video.style.zIndex = '11';
+            }
+        }
+        
+        // 处理视频暂停时显示封面图（桌面端）
+        function handleVideoPause(video, placeholderId) {
+            const placeholder = placeholderId ? document.getElementById(placeholderId) : null;
+            if (placeholder && video.currentTime === 0) {
+                placeholder.style.display = 'flex';
+            }
+        }
+        
+        // 处理封面图加载失败，尝试其他格式
+        function handleCoverError(img, videoFile) {
+            const src = img.src;
+            const baseName = videoFile.replace(/\.[^/.]+$/, '');
+            const assetPath = getAssetPath();
+            
+            console.log('封面图加载失败，尝试其他格式:', src);
+            
+            // 如果当前是 _cover.jpg，尝试 .jpg
+            if (src.includes('_cover.jpg')) {
+                img.src = assetPath + baseName + '.jpg';
+                img.onerror = function() {
+                    // .jpg 也失败了，尝试 .png
+                    this.src = assetPath + baseName + '.png';
+                    this.onerror = function() {
+                        // 所有格式都失败，隐藏图片，显示占位背景
+                        console.log('所有封面图格式都加载失败');
+                        this.style.display = 'none';
+                        // 确保占位符仍然显示
+                        const placeholder = this.closest('.video-placeholder');
+                        if (placeholder) {
+                            placeholder.style.display = 'flex';
+                            placeholder.style.background = '#222';
+                        }
+                    };
+                };
+                return;
+            }
+            
+            // 如果当前是 .jpg，尝试 .png
+            if (src.includes('.jpg')) {
+                img.src = assetPath + baseName + '.png';
+                img.onerror = function() {
+                    // .png 也失败了
+                    console.log('所有封面图格式都加载失败');
+                    this.style.display = 'none';
+                    const placeholder = this.closest('.video-placeholder');
+                    if (placeholder) {
+                        placeholder.style.display = 'flex';
+                        placeholder.style.background = '#222';
+                    }
+                };
+                return;
+            }
+            
+            // 如果都失败了，隐藏图片，显示默认背景
+            img.style.display = 'none';
+            const placeholder = img.closest('.video-placeholder');
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+                placeholder.style.background = '#222';
+            }
+        }
+
+        // ========================================================
+        // 🏷️ 分类筛选功能
+        // ========================================================
+        
+        // 筛选作品
+        function filterWorks(category) {
+            const items = document.querySelectorAll('.item');
+            let visibleCount = 0;
+            
+            items.forEach(item => {
+                if (category === 'all') {
+                    item.style.display = '';
+                    visibleCount++;
+                } else {
+                    const itemCategory = item.getAttribute('data-category');
+                    if (itemCategory === category) {
+                        item.style.display = '';
+                        visibleCount++;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                }
+            });
+            
+            // 如果没有作品，显示提示
+            const gallery = document.getElementById('app');
+            let noResults = gallery.querySelector('.no-results');
+            
+            if (visibleCount === 0 && category !== 'all') {
+                if (!noResults) {
+                    noResults = document.createElement('div');
+                    noResults.className = 'no-results';
+                    noResults.textContent = `暂无"${category}"类别的作品`;
+                    gallery.appendChild(noResults);
+                } else {
+                    noResults.textContent = `暂无"${category}"类别的作品`;
+                }
+            } else {
+                if (noResults) {
+                    noResults.remove();
+                }
+            }
+        }
+        
+        // 初始化分类筛选器
+        function initFilterButtons() {
+            const filterButtons = document.querySelectorAll('.filter-btn');
+            
+            filterButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    // 移除所有活动状态
+                    filterButtons.forEach(b => b.classList.remove('active'));
+                    // 添加活动状态到当前按钮
+                    this.classList.add('active');
+                    
+                    // 获取分类并筛选
+                    const category = this.getAttribute('data-category');
+                    filterWorks(category);
+                });
+            });
+        }
+
+        // ========================================================
+        // 🌐 CDN 配置（解决中国访问 GitHub Pages 慢的问题）
+        // ========================================================
+        const CDN_CONFIG = {
+            // ========== 七牛云 CDN 配置（优先使用） ==========
+            // 设置为 true 启用七牛云 CDN，设置为 false 则使用 jsDelivr 备用方案
+            useQiniuCDN: true,  // 改为 false 可禁用七牛云，使用 jsDelivr
+            
+            // 七牛云 CDN 域名（请替换为你的实际域名）
+            // 方式一：使用默认测试域名（格式：https://你的空间名.bkt.clouddn.com/）
+            // 方式二：使用自定义域名（需要域名已备案，格式：https://你的域名.com/）
+            // 注意：域名末尾需要带斜杠 /
+            // ⚠️ 上传文件到七牛云后，请在此处填入你的 CDN 域名
+            qiniuCDNBase: 'http://t67uxf1bp.hd-bkt.clouddn.com/',  // 七牛云测试域名
+            
+            // ========== GitHub 仓库信息（备用方案） ==========
+            githubUser: 'mangguo001',
+            githubRepo: 'mg-portfolio',
+            githubBranch: 'main',
+            
+            // 是否使用 CDN（自动检测：GitHub Pages 环境使用 CDN，本地开发使用相对路径）
+            useCDN: window.location.hostname.includes('github.io') || 
+                    window.location.hostname.includes('netlify.app') ||
+                    window.location.hostname.includes('vercel.app')
+        };
+        
+        // 生成资源路径（assets 文件夹）
+        function getAssetPath() {
+            // 优先使用七牛云 CDN（如果已配置，无论本地还是服务器都使用）
+            if (CDN_CONFIG.useQiniuCDN && CDN_CONFIG.qiniuCDNBase && !CDN_CONFIG.qiniuCDNBase.includes('你的七牛云域名')) {
+                return CDN_CONFIG.qiniuCDNBase + 'assets/';
+            }
+            
+            // 如果配置了使用 CDN（GitHub Pages 等环境），使用 jsDelivr 备用方案
+            if (CDN_CONFIG.useCDN) {
+                return `https://cdn.jsdelivr.net/gh/${CDN_CONFIG.githubUser}/${CDN_CONFIG.githubRepo}@${CDN_CONFIG.githubBranch}/assets/`;
+            }
+            
+            // 本地开发且未配置七牛云 CDN 时，使用相对路径
+            return './assets/';
+        }
+        
+        // 生成 JSON 数据路径
+        function getDataPath(filename) {
+            // 优先使用七牛云 CDN（如果已配置，无论本地还是服务器都使用）
+            if (CDN_CONFIG.useQiniuCDN && CDN_CONFIG.qiniuCDNBase && !CDN_CONFIG.qiniuCDNBase.includes('你的七牛云域名')) {
+                // 确保路径正确：qiniuCDNBase 末尾有斜杠，直接拼接 _data/
+                const base = CDN_CONFIG.qiniuCDNBase.endsWith('/') ? CDN_CONFIG.qiniuCDNBase : CDN_CONFIG.qiniuCDNBase + '/';
+                return base + '_data/' + filename;
+            }
+            
+            // 如果配置了使用 CDN（GitHub Pages 等环境），使用 jsDelivr 备用方案
+            if (CDN_CONFIG.useCDN) {
+                return `https://cdn.jsdelivr.net/gh/${CDN_CONFIG.githubUser}/${CDN_CONFIG.githubRepo}@${CDN_CONFIG.githubBranch}/_data/${filename}`;
+            }
+            
+            // 本地开发且未配置七牛云 CDN 时，使用相对路径
+            return `./_data/${filename}`;
+        }
+
+        // ========================================================
+        // 📦 数据加载功能（从JSON文件加载）
+        // ========================================================
+        
+        // 默认数据（备用）
+        const defaultWorks = [
+            {
+                // 第一个作品
+                type: 'video',               // 类型: 'video' 或 'image'
+                file: 'demo_video.mp4',      // assets 文件夹里的文件名
+                title: 'UE5.6/MetaHuman 全职猎人尼飞彼多',          // 标题
+                desc: 'Blender / ue5.6 ', // 描述
+                category: '动画',  // 分类: 动画、绘画、交互、设计
+                link: 'https://www.bilibili.com/video/BV1zhCTB4Ebx' // 点击跳转链接
+            },
+            {
+                type: 'video',
+                file: 'my_animation.mp4',  
+                title: '假如我家的猫COS全职猎人里的角色之尼飞彼多',
+                desc: 'Blender',
+                category: '动画',  // 分类
+                link: 'https://www.bilibili.com/video/BV1Kb1jBqEdM'
+            },
+            // --- 复制下面这一块来添加新作品 ---
+            {
+                type: 'video',
+                file: 'my_animation2.mp4',  
+                title: '九天揽月|自制动画',
+                desc: 'Blender',
+                category: '动画',  // 分类
+                link: 'https://www.bilibili.com/video/BV1Q7xVzBEyh'
+            },
+            // ----------------------------------
+            {
+                type: 'video',
+                file: '噬金虫.mp4',  
+                title: '噬金虫|位列人界奇虫榜第十二位，终成道祖',
+                desc: 'Blender',
+                category: '动画',  // 分类
+                link: 'https://www.bilibili.com/video/BV1FrHnzaEB1'
+            },
+            // ----------------------------------
+            {
+                type: 'video',
+                file: '全职猎人凯特.mp4',  
+                title: '全职猎人凯特真人版',
+                desc: 'Blender',
+                category: '动画',  // 分类
+                link: 'https://www.bilibili.com/video/BV13mW4zzEVW'
+            },
+            
+             // ----------------------------------
+            {
+                type: 'image',
+                file: '2021 (2).JPG',  
+                title: '无题',
+                desc: '板绘',
+                category: '绘画',  // 分类
+                link: 'https://www.bilibili.com/video/BV13mW4zzEVW'
+            }
+        ];
+        
+        const defaultSettings = {
+            siteTitle: "MY WORK",
+            headerTitle: "MG-mango\nPortfolio.",
+            intro: {
+                line1: "慢工艺术.",
+                line2: "平PING & 芒果小子.",
+                line3: "数字艺术创作者.",
+                line4: "湖北武汉.",
+                line5: "🛰VX：mango130p"
+            },
+            categories: ["动画", "绘画", "交互", "设计"]
+        };
+        
+        // 加载作品数据
+        async function loadWorks() {
+            try {
+                const response = await fetch(getDataPath('works.json'));
+                if (!response.ok) {
+                    throw new Error('无法加载作品数据');
+                }
+                const data = await response.json();
+                // 按order排序
+                const works = (data.works || []).sort((a, b) => (a.order || 0) - (b.order || 0));
+                return works;
+            } catch (error) {
+                console.error('加载作品数据失败，使用默认数据:', error);
+                return defaultWorks;
+            }
+        }
+        
+        // 加载页面设置
+        async function loadSettings() {
+            try {
+                const response = await fetch(getDataPath('settings.json'));
+                if (!response.ok) {
+                    throw new Error('无法加载页面设置');
+                }
+                const data = await response.json();
+                return data.settings || defaultSettings;
+            } catch (error) {
+                console.error('加载页面设置失败，使用默认设置:', error);
+                return defaultSettings;
+            }
+        }
+        
+        // 更新页面标题和介绍
+        function updatePageSettings(settings) {
+            // 更新网站标题
+            if (settings.siteTitle) {
+                document.title = settings.siteTitle;
+            }
+            
+            // 更新头部标题
+            const headerTitle = document.querySelector('h1');
+            if (headerTitle && settings.headerTitle) {
+                headerTitle.innerHTML = settings.headerTitle.replace(/\n/g, '<br>');
+            }
+            
+            // 更新介绍文字
+            const introDiv = document.querySelector('.intro');
+            if (introDiv && settings.intro) {
+                const intro = settings.intro;
+                introDiv.innerHTML = `
+                    ${intro.line1 || ''}<br>
+                    ${intro.line2 || ''}<br>
+                    ${intro.line3 || ''}<br>
+                    ${intro.line4 || ''}<br>
+                    ${intro.line5 || ''}
+                `;
+            }
+            
+            // 更新分类按钮（如果需要）
+            if (settings.categories && settings.categories.length > 0) {
+                updateCategoryButtons(settings.categories);
+            }
+        }
+        
+        // 更新分类按钮
+        function updateCategoryButtons(categories) {
+            const filterButtons = document.querySelector('.filter-buttons');
+            if (!filterButtons) return;
+            
+            let buttonsHTML = '<button class="filter-btn active" data-category="all">全部</button>';
+            categories.forEach(category => {
+                buttonsHTML += `<button class="filter-btn" data-category="${category}">${category}</button>`;
+            });
+            
+            filterButtons.innerHTML = buttonsHTML;
+            
+            // 重新初始化筛选器
+            initFilterButtons();
+        }
+        
+        // 全局变量，存储加载的数据
+        let works = [];
+        let settings = {};
+
+        // ========================================================
+        // 👇 下面的代码负责生成网页，需要修改为异步加载 👇
+        // ========================================================
+        
+        // 生成作品列表
+        async function generateWorks() {
+            const gallery = document.getElementById('app');
+            const assetPath = getAssetPath(); // 自动使用 CDN 或本地路径
+            
+            // 加载数据和设置
+            works = await loadWorks();
+            settings = await loadSettings();
+            
+            // 更新页面设置
+            updatePageSettings(settings);
+            
+            // 清空画廊
+            gallery.innerHTML = '';
+
+            works.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'item';
+            // 添加分类属性，如果没有分类则默认为"其他"
+            card.setAttribute('data-category', item.category || '其他');
+            
+            // 在循环开始时就检测移动端（对所有类型都有效）
+            const isMobile = isMobileDevice();
+            
+            let mediaHTML = '';
+            
+            // 在循环外部定义变量，确保作用域正确
+            let videoId = '';
+            let placeholderId = '';
+            let videoSrc = '';
+            let coverSrc = '';
+
+            if (item.type === 'video') {
+                // 视频：移动端懒加载优化，桌面端正常加载
+                videoId = `video-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`;
+                placeholderId = `placeholder-${videoId}`;
+                videoSrc = assetPath + item.file;
+                coverSrc = getCoverImagePath(item.file, item.cover, assetPath);
+                
+                if (isMobile) {
+                    // 移动端：滑动到卡片时自动播放，不显示封面图，使用视频第一帧
+                    mediaHTML = `
+                        <div class="media-box video-container mobile-video-item" data-video-id="${videoId}" data-video-src="${videoSrc}">
+                            <span class="badge">VIDEO</span>
+                            <video 
+                                id="${videoId}"
+                                src="${videoSrc}"
+                                muted 
+                                loop 
+                                playsinline
+                                preload="metadata"
+                                webkit-playsinline="true"
+                                x5-playsinline="true"
+                                style="width: 100%; height: auto; display: block; object-fit: cover;"
+                            ></video>
+                        </div>
+                    `;
+                } else {
+                    // 桌面端：优化预加载，使用封面图和 poster 属性
+                    mediaHTML = `
+                        <div class="media-box video-container">
+                            <span class="badge">VIDEO</span>
+                            <div class="video-placeholder" id="${placeholderId}" style="display: flex;">
+                                <img class="video-cover" src="${coverSrc}" alt="${item.title}" onerror="handleCoverError(this, '${item.file}');" loading="lazy">
+                                <div class="play-button-large" style="display: none;"></div>
+                            </div>
+                            <video 
+                                id="${videoId}"
+                                src="${videoSrc}" 
+                                poster="${coverSrc}"
+                                muted 
+                                loop 
+                                playsinline
+                                preload="auto"
+                                onmouseover="handleVideoHover(this);" 
+                                onmouseout="handleVideoHoverOut(this);"
+                                onclick="handleVideoClick(this, event);"
+                                oncanplay="handleVideoCanPlay(this);"
+                                onplay="handleVideoPlay(this, '${placeholderId}');"
+                            ></video>
+                            <div class="play-button" style="display: none;">
+                                ▶
+                            </div>
+                        </div>
+                    `;
+                }
+            } else {
+                // 图片
+                mediaHTML = `
+                    <div class="media-box">
+                        <img src="${assetPath + item.file}" loading="lazy" alt="${item.title}">
+                    </div>
+                `;
+            }
+
+            // 优化：视频区域点击播放，文字区域点击跳转
+            if (item.type === 'video') {
+                card.innerHTML = `
+                    ${mediaHTML}
+                    <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
+                        <div class="meta">
+                            <div class="work-title">${item.title}</div>
+                            <div class="work-desc">${item.desc}</div>
+                        </div>
+                    </a>
+                `;
+            } else {
+                card.innerHTML = `
+                    <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; color:inherit;">
+                        ${mediaHTML}
+                        <div class="meta">
+                            <div class="work-title">${item.title}</div>
+                            <div class="work-desc">${item.desc}</div>
+                        </div>
+                    </a>
+                `;
+            }
+
+            gallery.appendChild(card);
+            
+            // 移动端视频自动播放（滚动到视口时）
+            if (item.type === 'video' && isMobile) {
+                // 移动端视频：设置自动播放
+                setTimeout(() => {
+                    setupMobileVideoAutoplay(videoId, videoSrc);
+                }, 100);
+            }
+            
+            // 为视频添加加载完成事件处理（桌面端优化）
+            if (item.type === 'video' && !isMobile) {
+                const cardElement = gallery.lastElementChild;
+                const video = cardElement.querySelector('video');
+                const playButton = cardElement.querySelector('.play-button');
+                const placeholder = cardElement.querySelector('.video-placeholder');
+                
+                if (video) {
+                    // 视频加载数据完成
+                    video.addEventListener('loadeddata', function() {
+                        this.classList.add('playing');
+                        if (placeholder) {
+                            placeholder.style.display = 'none';
+                        }
+                        this.style.display = 'block';
+                    });
+                    
+                    // 视频播放时隐藏占位符和按钮
+                    video.addEventListener('play', function() {
+                        this.classList.add('playing');
+                        if (placeholder) {
+                            placeholder.style.display = 'none';
+                        }
+                        if (playButton) {
+                            playButton.style.display = 'none';
+                        }
+                        this.style.display = 'block';
+                    });
+                    
+                    // 视频加载错误处理
+                    video.addEventListener('error', function() {
+                        console.error('视频加载错误:', this.src);
+                        if (placeholder) {
+                            const loadingDiv = placeholder.querySelector('.video-loading');
+                            if (loadingDiv) {
+                                loadingDiv.textContent = '加载失败，点击重试';
+                            }
+                        }
+                    });
+                }
+            }
+            });
+            
+            // 在所有作品生成完成后，统一设置所有移动端图片滑动变彩色
+            if (isMobileDevice()) {
+                setTimeout(() => {
+                    const allImages = gallery.querySelectorAll('.item .media-box img:not(.video-cover)');
+                    debugLog('找到所有移动端图片:', allImages.length);
+                    allImages.forEach((img, index) => {
+                        debugLog(`设置第 ${index + 1} 张图片变彩色:`, img.src);
+                        setupMobileImageColor(img);
+                    });
+                }, 300);
+            }
+            
+            // 初始化分类筛选功能
+            initFilterButtons();
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化 StarryCanvas
+            initStarryCanvas();
+            
+            // 生成作品列表
+            generateWorks();
+        });
+    </script>
+    
+    <!-- Decap CMS Identity Widget -->
+    <script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <script>
+        if (window.netlifyIdentity) {
+            window.netlifyIdentity.on("init", user => {
+                if (!user) {
+                    window.netlifyIdentity.on("login", () => {
+                        document.location.href = "/admin/";
+                    });
+                }
+            });
+        }
+    </script>
+
+</body>
+</html>

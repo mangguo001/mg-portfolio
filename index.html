@@ -1029,7 +1029,8 @@
                 if (isUltraWide) {
                     textY = height * 0.4; // 超宽屏时稍微上移
                 } else if (isPortrait) {
-                    textY = height * 0.5; // 竖屏：保持在中心位置
+                    // 关键修复：移动端文字往上移动，避免与底部LOGO重叠
+                    textY = height * 0.35; // 从 0.5 改为 0.35，往上移动，避免与LOGO重叠
                 } else if (isSquare) {
                     textY = height * 0.45; // 正方形
                 } else {

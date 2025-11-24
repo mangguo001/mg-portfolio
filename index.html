@@ -1029,7 +1029,7 @@
                 if (isUltraWide) {
                     textY = height * 0.4; // 超宽屏时稍微上移
                 } else if (isPortrait) {
-                    textY = height * 0.3; // 竖屏
+                    textY = height * 0.5; // 竖屏：保持在中心位置
                 } else if (isSquare) {
                     textY = height * 0.45; // 正方形
                 } else {
@@ -1084,13 +1084,15 @@
                 if (isUltraWide) {
                     targetWidthRatio = 0.65; // 超宽屏：留更多边距
                 } else if (isPortrait) {
-                    targetWidthRatio = 0.85; // 竖屏：可以更宽
+                    // 关键修复：移动端增加边距，但不要太多
+                    // 从 0.85 改为 0.7，左右各 15% 边距，比原来的 7.5% 增加一倍
+                    targetWidthRatio = 0.7; // 左右各 15% 边距
                 } else {
                     targetWidthRatio = 0.75; // 标准：平衡
                 }
                 
                 const targetWidth = workingWidth * targetWidthRatio;
-                const textMetrics = tempCtx.measureText(text);
+                let textMetrics = tempCtx.measureText(text);
                 
                 if (textMetrics.width > targetWidth && textMetrics.width > 0) {
                     fontSize = Math.floor(fontSize * (targetWidth / textMetrics.width));
@@ -1113,9 +1115,16 @@
                 
                 // 最终验证 fontSize 有效性（确保不会太小）
                 // 全屏时，Canvas 可能很大，但字体不能太小，否则无法采样到
-                if (!isFinite(fontSize) || fontSize < 100) {  // 从 50 提高到 100，确保字体足够大
-                    fontSize = Math.max(200, Math.min(workingWidth, workingHeight) * 0.1); // 使用相对尺寸的默认值
-                    console.warn('字体大小无效，使用默认值:', fontSize, 'width:', workingWidth, 'height:', workingHeight);
+                // 关键修复：移动端使用更小的默认值，避免文字超出画面
+                const isMobileDevice = window.innerWidth <= 768;
+                if (!isFinite(fontSize) || fontSize < 100) {
+                    // 移动端使用更小的默认值，避免文字超出画面
+                    if (isMobileDevice) {
+                        fontSize = Math.max(100, Math.min(workingWidth, workingHeight) * 0.15); // 移动端使用 15%
+                    } else {
+                        fontSize = Math.max(200, Math.min(workingWidth, workingHeight) * 0.1); // 桌面端使用 10%
+                    }
+                    console.warn('字体大小无效，使用默认值:', fontSize, 'width:', workingWidth, 'height:', workingHeight, 'isMobile:', isMobileDevice);
                 }
                 
                 // 重新设置字体（确保使用计算后的字体大小，并明确指定 normal）
@@ -1123,6 +1132,19 @@
                 tempCtx.fillStyle = 'white';
                 tempCtx.textAlign = 'center';
                 tempCtx.textBaseline = 'middle';
+                
+                // 关键修复：确保文字宽度不会超出 Canvas
+                textMetrics = tempCtx.measureText(text);
+                const textWidth = textMetrics.width;
+                
+                // 如果文字宽度超出 Canvas，进一步缩小字体
+                // 关键修复：移动端使用与 targetWidthRatio 一致的比例
+                const maxWidthRatio = isPortrait ? 0.7 : 0.95; // 移动端使用 0.7（与 targetWidthRatio 一致），桌面端使用 0.95
+                if (textWidth > workingWidth * maxWidthRatio) {
+                    fontSize = Math.floor(fontSize * (workingWidth * maxWidthRatio / textWidth));
+                    tempCtx.font = `normal 700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
+                    console.warn('文字宽度超出 Canvas，缩小字体到:', fontSize, 'textWidth:', textWidth, 'workingWidth:', workingWidth, 'maxWidthRatio:', maxWidthRatio);
+                }
                 
                 // 确保文字位置在 Canvas 范围内，防止超出（始终居中）
                 const textX = workingWidth / 2; // 始终水平居中
@@ -1319,25 +1341,29 @@
                 }
                 lastFrameTime = currentTime - (elapsed % frameInterval);
                 
+                // 关键修复：使用整数尺寸，确保与粒子创建时的尺寸一致
+                const canvasWidth = Math.floor(canvas.width);
+                const canvasHeight = Math.floor(canvas.height);
+                
                 // 清除画布
                 ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
                 
                 // 使用缓存的渐晕效果（不影响视觉效果）
-                const gradient = getGradient(canvas.width, canvas.height);
+                const gradient = getGradient(canvasWidth, canvasHeight);
                 ctx.fillStyle = gradient;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, canvasWidth, canvasHeight);
                 
                 // 绘制背景星星（数量已大幅减少）
                 bgStars.forEach(star => {
-                    star.update(canvas.width, canvas.height);
+                    star.update(canvasWidth, canvasHeight);
                     star.draw(ctx);
                 });
                 
                 // 绘制前景粒子
                 ctx.globalCompositeOperation = 'lighter';
                 particles.forEach(p => {
-                    p.update(mouse, canvas.width, canvas.height);
+                    p.update(mouse, canvasWidth, canvasHeight);
                     p.draw(ctx);
                 });
                 

@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 chcp 65001 >nul
 echo ========================================
 echo 🚀 GitHub Pages + 七牛云 一键部署
@@ -66,7 +67,7 @@ if "%commit_msg%"=="" (
     set commit_msg=更新网站
 )
 
-echo [2/4] 添加文件...
+echo [2/5] 添加文件到暂存区...
 git add .
 if errorlevel 1 (
     echo ❌ git add 失败，请检查 Git 状态
@@ -74,18 +75,40 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [3/4] 提交更改...
+echo [3/5] 提交更改...
 git commit -m "%commit_msg%"
+set COMMIT_SUCCESS=0
 if errorlevel 1 (
     echo ⚠️  提交失败，可能没有需要提交的更改
-    pause
-    exit /b 1
+    set COMMIT_SUCCESS=1
+) else (
+    echo ✅ 提交成功
 )
 
-echo [4/4] 推送到 GitHub...
+echo.
+echo [4/5] 检查是否有未推送的提交...
+git status -sb | findstr /C:"ahead" >nul
+if errorlevel 1 (
+    if !COMMIT_SUCCESS!==1 (
+        echo ℹ️  没有需要提交的更改，也没有未推送的提交
+        echo.
+        echo ========================================
+        echo ✅ 当前状态：所有更改已提交并推送
+        echo ========================================
+        pause
+        exit /b 0
+    )
+)
+
+echo [5/5] 推送到 GitHub...
 git push
 if errorlevel 1 (
     echo ❌ 推送失败，请检查网络或 Git 配置
+    echo.
+    echo 提示：如果这是第一次推送，可能需要设置上游分支：
+    echo   git push -u origin main
+    echo   或
+    echo   git push -u origin master
     pause
     exit /b 1
 )

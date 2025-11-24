@@ -780,7 +780,7 @@
             mouseRadius: 120,
             mousePush: 5,
             returnForce: 0.003,
-            bgStarCount: 30,  // 从 120 减少到 30，大幅降低性能消耗
+            bgStarCount: 20,  // 从 30 减少到 20，进一步降低 GPU 消耗（视觉影响很小）
             colors: [
                 '#ffffff', // Pure White
                 '#ccebff', // Blue-ish White
@@ -862,8 +862,8 @@
                 ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                 ctx.fillStyle = this.color;
                 
-                // 移动端使用更小的阴影模糊，让粒子更精细
-                ctx.shadowBlur = this.isMobile ? this.size * 1.5 : this.size * 2;  // 移动端减少阴影模糊
+                // 优化：稍微降低阴影模糊，减少 GPU 消耗（视觉影响很小）
+                ctx.shadowBlur = this.isMobile ? this.size * 1.2 : this.size * 1.5;  // 从 1.5/2 降低到 1.2/1.5
                 
                 ctx.shadowColor = this.color;
                 ctx.fill();
@@ -921,12 +921,50 @@
             let showConstellations = true;
             let density = 12;  // 从 8 改为 12（更大的值 = 更少的粒子，提升性能）
             
+            // 缓存渐晕效果（只在尺寸改变时重新创建，不影响视觉效果）
+            let cachedGradient = null;
+            let cachedGradientSize = { width: 0, height: 0 };
+            
             // 更新粒子（从文字生成）
-            function updateParticles() {
-                // 始终使用实际显示尺寸，确保 Canvas 尺寸正确
-                const rect = header.getBoundingClientRect();
-                let displayWidth = rect.width;
-                let displayHeight = rect.height;
+            // 添加标志防止循环调用
+            let isUpdatingParticles = false;
+            let isUpdatingDimensions = false;
+            let isResizeObserverDisconnected = false; // 跟踪 ResizeObserver 是否已断开
+            let updateDimensionsDepth = 0; // 跟踪嵌套调用深度，防止无限递归
+            
+            function updateParticles(providedWidth, providedHeight) {
+                // 防止循环调用
+                if (isUpdatingParticles) {
+                    console.warn('updateParticles 正在执行，跳过重复调用');
+                    return;
+                }
+                
+                isUpdatingParticles = true;
+                
+                // 关键修复：在 updateParticles 执行期间，设置一个全局标志，完全禁用 resize 处理
+                const previousResizeDisabled = window.__starryResizeDisabled || false;
+                window.__starryResizeDisabled = true;
+                
+                try {
+                    // 确保 text 有效（防止空字符串导致问题）
+                    if (!text || text.trim() === '') {
+                        text = 'MG-MANGO';
+                    }
+                    
+                    console.log('updateParticles 被调用，text:', text, 'particles.length:', particles.length); // 调试信息
+                    
+                    // 如果提供了尺寸参数，使用提供的尺寸（避免触发 getBoundingClientRect）
+                    // 否则获取实际显示尺寸
+                    let displayWidth, displayHeight;
+                    if (providedWidth && providedHeight) {
+                        displayWidth = providedWidth;
+                        displayHeight = providedHeight;
+                    } else {
+                        // 始终使用实际显示尺寸，确保 Canvas 尺寸正确
+                        const rect = header.getBoundingClientRect();
+                        displayWidth = rect.width;
+                        displayHeight = rect.height;
+                    }
                 
                 // 如果无法获取实际尺寸，尝试使用 dimensions
                 if (displayWidth === 0 || displayHeight === 0) {
@@ -936,20 +974,44 @@
                         displayHeight = dimensions.height;
                     } else {
                         // 如果 dimensions 也无效，延迟重试（可能是元素还没渲染完成）
-                        setTimeout(() => updateParticles(), 50);
+                        // 注意：在 finally 之前重置标志，避免延迟调用时标志仍为 true
+                        isUpdatingParticles = false;
+                        setTimeout(() => {
+                            // 延迟调用时再次检查，避免重复调用
+                            if (!isUpdatingParticles) {
+                                updateParticles();
+                            }
+                        }, 50);
                         return;
                     }
                 }
                 
-                // 更新 dimensions 为实际显示尺寸（确保同步）
-                dimensions = { width: displayWidth, height: displayHeight };
+                // 重要：不要在 updateParticles 中更新 dimensions，避免触发 ResizeObserver 导致循环
+                // dimensions 只在 updateDimensions 中更新
+                // dimensions = { width: displayWidth, height: displayHeight }; // 已删除，避免循环
                 
                 // 设置 Canvas 内部尺寸（必须与显示尺寸完全一致）
-                // 注意：Canvas 的 CSS 是 width: 100%; height: 100%，所以内部尺寸必须匹配显示尺寸
-                canvas.width = displayWidth;
-                canvas.height = displayHeight;
+                // 注意：如果提供了尺寸参数（从 updateDimensions 调用），Canvas 尺寸已经更新，不需要再次更新
+                // 只有在没有提供尺寸参数时（从其他事件调用），才需要更新 Canvas 尺寸
+                if (!providedWidth || !providedHeight) {
+                    // 注意：Canvas 的 CSS 是 width: 100%; height: 100%，所以内部尺寸必须匹配显示尺寸
+                    // 但只更新 Canvas 尺寸，不更新 dimensions，避免触发 ResizeObserver
+                    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+                        // 关键修复：暂时断开 ResizeObserver，避免更新 Canvas 尺寸时触发循环
+                        if (!isResizeObserverDisconnected) {
+                            resizeObserver.disconnect();
+                            isResizeObserverDisconnected = true;
+                        }
+                        canvas.width = displayWidth;
+                        canvas.height = displayHeight;
+                        // 不要在这里重连 ResizeObserver，让 updateDimensions 的 finally 块统一处理
+                        // 如果是从其他事件调用（不是从 updateDimensions），重连逻辑会在 finally 块中处理
+                    }
+                }
                 
-                const { width, height } = dimensions;
+                // 使用实际显示尺寸，而不是 dimensions（避免循环）
+                const width = displayWidth;
+                const height = displayHeight;
                 
                 // 验证尺寸有效性
                 if (width <= 0 || height <= 0 || !isFinite(width) || !isFinite(height)) {
@@ -976,22 +1038,35 @@
                 
                 // 字体大小计算
                 const tempCanvas = document.createElement('canvas');
-                const tempCtx = tempCanvas.getContext('2d');
+                // 优化：设置 willReadFrequently 属性，提高 getImageData 性能
+                const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
                 if (!tempCtx) return;
                 
-                tempCanvas.width = width;
-                tempCanvas.height = height;
+                // 关键修复：确保临时 Canvas 尺寸正确设置
+                // Canvas 的 width 和 height 必须是整数，如果传入浮点数会被转换
+                // 参考代码：tempCanvas.width = width; tempCanvas.height = height;
+                // 但我们需要确保 width 和 height 是整数，避免浮点数导致的采样问题
+                const canvasWidth = Math.floor(width);
+                const canvasHeight = Math.floor(height);
+                tempCanvas.width = canvasWidth;
+                tempCanvas.height = canvasHeight;
+                
+                // 关键修复：使用整数尺寸进行所有后续操作
+                // 这样可以避免浮点数导致的采样问题
+                const workingWidth = canvasWidth;
+                const workingHeight = canvasHeight;
                 
                 // 根据窗口比例自适应初始字体大小
+                // 关键修复：使用整数尺寸计算字体大小
                 let baseFontSize;
                 if (isUltraWide) {
-                    baseFontSize = Math.min(width * 0.12, height * 0.7); // 超宽屏：基于宽度，限制高度
+                    baseFontSize = Math.min(workingWidth * 0.12, workingHeight * 0.7); // 超宽屏：基于宽度，限制高度
                 } else if (isPortrait) {
-                    baseFontSize = Math.min(width * 0.35, height * 0.3); // 竖屏：基于宽度
+                    baseFontSize = Math.min(workingWidth * 0.35, workingHeight * 0.3); // 竖屏：基于宽度
                 } else if (isSquare) {
-                    baseFontSize = Math.min(width * 0.3, height * 0.5); // 正方形：平衡
+                    baseFontSize = Math.min(workingWidth * 0.3, workingHeight * 0.5); // 正方形：平衡
                 } else {
-                    baseFontSize = Math.min(width * 0.2, height * 0.55); // 标准横屏：平衡
+                    baseFontSize = Math.min(workingWidth * 0.2, workingHeight * 0.55); // 标准横屏：平衡
                 }
                 
                 // 确保 baseFontSize 有效
@@ -1014,7 +1089,7 @@
                     targetWidthRatio = 0.75; // 标准：平衡
                 }
                 
-                const targetWidth = width * targetWidthRatio;
+                const targetWidth = workingWidth * targetWidthRatio;
                 const textMetrics = tempCtx.measureText(text);
                 
                 if (textMetrics.width > targetWidth && textMetrics.width > 0) {
@@ -1031,14 +1106,16 @@
                     maxHeightRatio = 0.6; // 标准横屏
                 }
                 
-                const maxH = height * maxHeightRatio;
+                const maxH = workingHeight * maxHeightRatio;
                 if (fontSize > maxH) {
                     fontSize = maxH;
                 }
                 
                 // 最终验证 fontSize 有效性（确保不会太小）
-                if (!isFinite(fontSize) || fontSize < 50) {
-                    fontSize = 200; // 使用安全的默认值
+                // 全屏时，Canvas 可能很大，但字体不能太小，否则无法采样到
+                if (!isFinite(fontSize) || fontSize < 100) {  // 从 50 提高到 100，确保字体足够大
+                    fontSize = Math.max(200, Math.min(workingWidth, workingHeight) * 0.1); // 使用相对尺寸的默认值
+                    console.warn('字体大小无效，使用默认值:', fontSize, 'width:', workingWidth, 'height:', workingHeight);
                 }
                 
                 // 重新设置字体（确保使用计算后的字体大小，并明确指定 normal）
@@ -1048,73 +1125,206 @@
                 tempCtx.textBaseline = 'middle';
                 
                 // 确保文字位置在 Canvas 范围内，防止超出（始终居中）
-                const textX = width / 2; // 始终水平居中
-                const finalTextY = Math.min(Math.max(textY, fontSize / 2), height - fontSize / 2);
+                const textX = workingWidth / 2; // 始终水平居中
+                const finalTextY = Math.min(Math.max(textY, fontSize / 2), workingHeight - fontSize / 2);
                 
                 // 清除临时 Canvas（确保干净）
-                tempCtx.clearRect(0, 0, width, height);
+                tempCtx.clearRect(0, 0, workingWidth, workingHeight);
                 
                 // 绘制文字
                 tempCtx.fillText(text, textX, finalTextY);
                 
-                // 采样逻辑 - 进一步优化性能（产生更少的粒子）
-                const imageData = tempCtx.getImageData(0, 0, width, height);
+                // 关键修复：验证文字是否真的被绘制了（简单检查）
+                // 在文字中心位置采样几个像素，确保文字被绘制
+                const checkX = Math.floor(textX);
+                const checkY = Math.floor(finalTextY);
+                const checkSize = 20; // 检查 20x20 的区域
+                const checkData = tempCtx.getImageData(
+                    Math.max(0, checkX - checkSize / 2),
+                    Math.max(0, checkY - checkSize / 2),
+                    Math.min(checkSize, workingWidth - Math.max(0, checkX - checkSize / 2)),
+                    Math.min(checkSize, workingHeight - Math.max(0, checkY - checkSize / 2))
+                );
+                let maxAlphaInCheck = 0;
+                for (let i = 3; i < checkData.data.length; i += 4) {
+                    if (checkData.data[i] > maxAlphaInCheck) {
+                        maxAlphaInCheck = checkData.data[i];
+                    }
+                }
+                
+                // 如果文字中心区域没有像素，说明绘制失败
+                if (maxAlphaInCheck < 100) {
+                    console.error('文字可能未正确绘制:', {
+                        text, textX, finalTextY, fontSize, 
+                        width: workingWidth, height: workingHeight,
+                        maxAlpha: maxAlphaInCheck,
+                        tempCanvasSize: { width: tempCanvas.width, height: tempCanvas.height }
+                    });
+                    // 尝试重新绘制一次
+                    tempCtx.clearRect(0, 0, workingWidth, workingHeight);
+                    tempCtx.font = `normal 700 ${fontSize}px 'Helvetica Neue', Helvetica, Arial, sans-serif`;
+                    tempCtx.fillStyle = 'white';
+                    tempCtx.textAlign = 'center';
+                    tempCtx.textBaseline = 'middle';
+                    tempCtx.fillText(text, textX, finalTextY);
+                }
+                
+                // 关键修复：使用整数尺寸获取 imageData
+                // 参考代码：直接绘制文字，然后立即采样，简单可靠
+                const imageData = tempCtx.getImageData(0, 0, workingWidth, workingHeight);
                 const data = imageData.data;
                 const newParticles = [];
                 
                 // 检测移动端，使用更少的粒子
                 const isMobile = window.innerWidth <= 768;
                 const qualityFactor = density / 6;  // density = 12 时，qualityFactor = 2.0
-                // 移动端使用更大的步长，产生更少的粒子
-                const baseStep = isMobile ? (fontSize / 50) : (fontSize / 40);  // 移动端除数更大
-                let step = Math.max(isMobile ? 4 : 3, Math.floor(baseStep * qualityFactor));  // 移动端最小步长更大
+                
+                // 参考代码的步长计算：更简单直接
+                // 参考代码：const step = Math.max(2, Math.floor((fontSize / 35) * qualityFactor));
+                const baseStep = fontSize / 35;  // 参考代码使用 35，而不是 50/60
+                let step = Math.max(2, Math.floor(baseStep * qualityFactor));  // 参考代码的最小值是 2
                 
                 // 确保 step 有效
                 if (!isFinite(step) || step <= 0) {
-                    step = isMobile ? 4 : 3; // 使用默认值
+                    step = 2; // 使用参考代码的最小值
                 }
                 
-                for (let y = 0; y < height; y += step) {
-                    for (let x = 0; x < width; x += step) {
-                        const index = (y * width + x) * 4;
-                        if (data[index + 3] > 128) {
-                            newParticles.push(new Particle(x, y, width, height));
+                // 如果步长太大，强制降低（确保能采样到文字）
+                const maxStep = Math.max(2, Math.floor(fontSize / 20)); // 保留作为安全措施
+                if (step > maxStep) {
+                    step = maxStep;
+                    console.log('步长过大，已限制为:', step, 'fontSize:', fontSize);
+                }
+                
+                // 采样函数 - 参考代码的逻辑：简单直接
+                // 关键修复：使用整数尺寸进行采样
+                const sampleParticles = (sampleStep, alphaThreshold) => {
+                    const particles = [];
+                    for (let y = 0; y < workingHeight; y += sampleStep) {
+                        for (let x = 0; x < workingWidth; x += sampleStep) {
+                            const index = (y * workingWidth + x) * 4;
+                            if (data[index + 3] > alphaThreshold) {
+                                particles.push(new Particle(x, y, workingWidth, workingHeight));
+                            }
+                        }
+                    }
+                    return particles;
+                };
+                
+                // 参考代码使用固定阈值 128，更可靠
+                // 参考代码：if (data[index + 3] > 128)
+                let sampledParticles = sampleParticles(step, 128); // 使用参考代码的阈值 128
+                
+                // 如果未生成粒子，尝试更小的步长和更低的阈值（保留重试机制作为备用）
+                if (sampledParticles.length === 0) {
+                    console.warn('第一次采样失败，尝试更小的步长和更低的阈值');
+                    const smallerStep = Math.max(1, Math.floor(step / 2));
+                    sampledParticles = sampleParticles(smallerStep, 100); // 降低阈值到 100
+                    
+                    // 如果还是失败，尝试最小步长和更低阈值
+                    if (sampledParticles.length === 0) {
+                        console.warn('第二次采样失败，尝试最小步长');
+                        sampledParticles = sampleParticles(1, 80); // 进一步降低阈值
+                        
+                        // 如果还是失败，尝试最低阈值
+                        if (sampledParticles.length === 0) {
+                            console.warn('第三次采样失败，尝试最低阈值');
+                            sampledParticles = sampleParticles(1, 50); // 最低阈值
                         }
                     }
                 }
                 
-                // 如果未生成粒子，保持之前的粒子（避免闪烁）
+                // 将采样结果添加到 newParticles
+                newParticles.push(...sampledParticles);
+                
+                // 如果未生成粒子，清空粒子数组
                 if (newParticles.length === 0) {
-                    return; // 不更新 particles，保持之前的粒子
+                    console.error('未生成粒子，可能文字太小或无效:', text, 'fontSize:', fontSize, 'step:', step, 'width:', workingWidth, 'height:', workingHeight);
+                    particles = [];
+                    return;
                 }
                 
-                // 限制最大粒子数量（防止过多粒子影响性能）
-                if (newParticles.length > 1000) {
-                    // 随机采样，保留 1000 个粒子
-                    const sampleStep = Math.ceil(newParticles.length / 1000);
+                console.log('生成粒子数量:', newParticles.length); // 调试信息
+                
+                // 限制最大粒子数量（稍微减少，视觉影响很小）
+                if (newParticles.length > 800) {  // 从 1000 减少到 800
+                    const sampleStep = Math.ceil(newParticles.length / 800);
                     const sampledParticles = [];
                     for (let i = 0; i < newParticles.length; i += sampleStep) {
                         sampledParticles.push(newParticles[i]);
                     }
-                    particles = sampledParticles.slice(0, 1000);
+                    particles = sampledParticles.slice(0, 800);
                 } else {
                     particles = newParticles;
                 }
+                } finally {
+                    isUpdatingParticles = false;
+                    // 恢复 resize 处理标志（延迟恢复，确保所有操作都已完成）
+                    setTimeout(() => {
+                        window.__starryResizeDisabled = previousResizeDisabled;
+                    }, 0);
+                    
+                    // 如果 ResizeObserver 被断开，在 updateParticles 执行完毕后重连
+                    // 统一在这里处理，无论是从 updateDimensions 调用还是从其他事件调用
+                    if (isResizeObserverDisconnected) {
+                        // 使用三重 requestAnimationFrame 确保完全执行完毕后再重连
+                        // 第一层：等待当前帧完成
+                        requestAnimationFrame(() => {
+                            // 第二层：再等一帧
+                            requestAnimationFrame(() => {
+                                // 第三层：再等一帧，确保所有操作都已完成
+                                requestAnimationFrame(() => {
+                                    // 再次检查，确保所有更新都已完成
+                                    if (!isUpdatingDimensions && !isUpdatingParticles && isResizeObserverDisconnected) {
+                                        resizeObserver.observe(header);
+                                        isResizeObserverDisconnected = false;
+                                    }
+                                });
+                            });
+                        });
+                    }
+                }
             }
             
-            // 动画循环 - 根据参考项目修改
-            function animate() {
-                // 清除画布（完全不透明清除，无轨迹效果）
-                ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';  // 改为 1.0，完全不透明，完全清除每帧
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // 动画循环 - GPU 优化版本（保持视觉效果）
+            let lastFrameTime = 0;
+            const targetFPS = 50; // 50fps（视觉几乎无差异，但降低 GPU 负担）
+            const frameInterval = 1000 / targetFPS;
+            
+            function getGradient(width, height) {
+                if (cachedGradient && 
+                    cachedGradientSize.width === width && 
+                    cachedGradientSize.height === height) {
+                    return cachedGradient;
+                }
                 
-                // 渐晕效果（参考项目使用 0.5）
                 const gradient = ctx.createRadialGradient(
-                    canvas.width / 2, canvas.height / 2, canvas.width / 4,
-                    canvas.width / 2, canvas.height / 2, Math.max(canvas.width, canvas.height)
+                    width / 2, height / 2, width / 4,
+                    width / 2, height / 2, Math.max(width, height)
                 );
                 gradient.addColorStop(0, 'rgba(0,0,0,0)');
-                gradient.addColorStop(1, 'rgba(0,0,0,0.5)');  // 改回 0.5，与参考项目一致
+                gradient.addColorStop(1, 'rgba(0,0,0,0.5)');
+                
+                cachedGradient = gradient;
+                cachedGradientSize = { width, height };
+                return gradient;
+            }
+            
+            function animate(currentTime) {
+                // 帧率限制（降低 GPU 负担，但保持流畅）
+                const elapsed = currentTime - lastFrameTime;
+                if (elapsed < frameInterval) {
+                    animationId = requestAnimationFrame(animate);
+                    return;
+                }
+                lastFrameTime = currentTime - (elapsed % frameInterval);
+                
+                // 清除画布
+                ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 使用缓存的渐晕效果（不影响视觉效果）
+                const gradient = getGradient(canvas.width, canvas.height);
                 ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
@@ -1131,19 +1341,19 @@
                     p.draw(ctx);
                 });
                 
-                // 星座连线 - 优化版本（减少计算）
+                // 星座连线 - 进一步优化（减少计算量，但保持连线效果）
                 if (showConstellations && particles.length > 0) {
-                    ctx.strokeStyle = 'rgba(130, 210, 255, 0.15)';  // 稍微降低透明度
-                    ctx.lineWidth = 0.5;  // 稍微减小线宽
+                    ctx.strokeStyle = 'rgba(130, 210, 255, 0.15)';
+                    ctx.lineWidth = 0.5;
                     ctx.beginPath();
                     
                     const particleCount = particles.length;
-                    const lookAhead = Math.min(20, Math.floor(particleCount / 10));  // 动态调整 lookAhead
-                    const maxDist = 50;  // 从 60 减少到 50
+                    const lookAhead = Math.min(18, Math.floor(particleCount / 12));  // 从 10 改为 12，稍微减少检查范围
+                    const maxDist = 50;
                     const maxDistSq = maxDist * maxDist;
                     
-                    // 优化：只检查部分粒子，减少计算量
-                    const checkInterval = Math.max(1, Math.floor(particleCount / 300));  // 从 200 改为 300，减少检查频率
+                    // 稍微减少检查频率
+                    const checkInterval = Math.max(1, Math.floor(particleCount / 350));  // 从 300 改为 350
                     
                     for (let i = 0; i < particleCount; i += checkInterval) {
                         const p1 = particles[i];
@@ -1155,13 +1365,12 @@
                             const dx = p1.x - p2.x;
                             const dy = p1.y - p2.y;
                             
-                            // 快速边界检查
                             if (Math.abs(dx) > maxDist || Math.abs(dy) > maxDist) continue;
                             
                             const distSq = dx * dx + dy * dy;
                             
                             if (distSq < maxDistSq) {
-                                if ((i * j + i) % 8 === 0) {  // 从 6 改为 8，减少连线数量
+                                if ((i * j + i) % 9 === 0) {  // 从 8 改为 9，稍微减少连线
                                     ctx.moveTo(p1.x, p1.y);
                                     ctx.lineTo(p2.x, p2.y);
                                 }
@@ -1204,48 +1413,128 @@
             
             // 统一的尺寸更新函数
             function updateDimensions() {
-                // 使用 getBoundingClientRect 获取实际显示尺寸，更准确
-                const rect = header.getBoundingClientRect();
-                const width = rect.width;
-                const height = rect.height;
-                
-                if (width === 0 || height === 0) return;
-                
-                // 如果尺寸没有变化，不需要更新（但允许从 0 更新到实际尺寸）
-                // 使用 Math.abs 允许 1px 的误差（避免浮点数精度问题和微小变化）
-                const widthDiff = Math.abs(dimensions.width - width);
-                const heightDiff = Math.abs(dimensions.height - height);
-                if (widthDiff < 1 && heightDiff < 1 && dimensions.width > 0) {
-                    return; // 尺寸基本没变化，跳过更新
+                // 防止循环调用
+                if (isUpdatingDimensions) {
+                    console.warn('updateDimensions 正在执行，跳过重复调用');
+                    return;
                 }
                 
-                dimensions = { width, height };
-                
-                // 立即更新 Canvas 内部尺寸，确保匹配（关键：必须在更新粒子前设置）
-                canvas.width = width;
-                canvas.height = height;
-                
-                // 重新初始化背景星星
-                bgStars = [];
-                for (let i = 0; i < STARRY_CONFIG.bgStarCount; i++) {
-                    bgStars.push(new BackgroundStar(width, height));
+                // 关键修复：检查嵌套深度，防止无限递归
+                if (updateDimensionsDepth > 0) {
+                    console.warn('updateDimensions 嵌套调用，深度:', updateDimensionsDepth, '跳过');
+                    return;
                 }
                 
-                // 更新粒子
-                updateParticles();
+                // 关键修复：立即断开 ResizeObserver，防止新的回调被触发
+                // 这必须在设置任何标志之前完成，确保不会有新的回调被调度
+                if (!isResizeObserverDisconnected) {
+                    resizeObserver.disconnect();
+                    isResizeObserverDisconnected = true;
+                }
+                
+                // 关键修复：立即取消所有待处理的 resize 相关的 requestAnimationFrame
+                // 这必须在设置标志之前完成，确保不会有待处理的回调执行
+                if (resizeRafId) {
+                    cancelAnimationFrame(resizeRafId);
+                    resizeRafId = null;
+                }
+                if (resizeTimeout) {
+                    cancelAnimationFrame(resizeTimeout);
+                    resizeTimeout = null;
+                }
+                
+                updateDimensionsDepth++;
+                
+                // 关键修复：立即设置所有标志，防止新的 requestAnimationFrame 被调度
+                // 即使回调已经在执行队列中，标志也已经设置，回调会检查标志并返回
+                isUpdatingDimensions = true;
+                window.__starryUpdatingDimensions = true;
+                const previousResizeDisabled = window.__starryResizeDisabled || false;
+                window.__starryResizeDisabled = true;
+                
+                try {
+                    // 使用 getBoundingClientRect 获取实际显示尺寸，更准确
+                    const rect = header.getBoundingClientRect();
+                    const width = rect.width;
+                    const height = rect.height;
+                    
+                    if (width === 0 || height === 0) return;
+                    
+                    // 如果尺寸没有变化，不需要更新（但允许从 0 更新到实际尺寸）
+                    // 使用 Math.abs 允许 1px 的误差（避免浮点数精度问题和微小变化）
+                    const widthDiff = Math.abs(dimensions.width - width);
+                    const heightDiff = Math.abs(dimensions.height - height);
+                    if (widthDiff < 1 && heightDiff < 1 && dimensions.width > 0) {
+                        return; // 尺寸基本没变化，跳过更新
+                    }
+                    
+                    dimensions = { width, height };
+                    
+                    // 清除渐晕缓存（尺寸改变时需要重新创建）
+                    cachedGradient = null;
+                    cachedGradientSize = { width: 0, height: 0 };
+                    
+                    // 注意：ResizeObserver 已经在 updateDimensions 开始时断开了
+                    // 这里不需要再次断开
+                    
+                    // 立即更新 Canvas 内部尺寸，确保匹配（关键：必须在更新粒子前设置）
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // 不要在这里重连 ResizeObserver，让 finally 块统一处理
+                    // 移除这里的 setTimeout 重连逻辑，避免重复重连
+                    
+                    // 重新初始化背景星星
+                    bgStars = [];
+                    for (let i = 0; i < STARRY_CONFIG.bgStarCount; i++) {
+                        bgStars.push(new BackgroundStar(width, height));
+                    }
+                    
+                    // 更新粒子（传入尺寸参数，避免再次获取 getBoundingClientRect）
+                    updateParticles(width, height);
+                } finally {
+                    updateDimensionsDepth--;
+                    isUpdatingDimensions = false;
+                    // 清除特殊标志
+                    window.__starryUpdatingDimensions = false;
+                    // 恢复 resize 处理标志（延迟恢复，确保所有操作都已完成）
+                    // 注意：updateParticles 的 finally 块也会恢复标志，但这里确保在 updateDimensions 完成后也恢复
+                    setTimeout(() => {
+                        // 只有在 updateParticles 也完成后才恢复（通过检查 isUpdatingParticles）
+                        if (!isUpdatingParticles) {
+                            window.__starryResizeDisabled = previousResizeDisabled;
+                        }
+                    }, 0);
+                }
             }
             
             // ResizeObserver 监听容器尺寸
             let resizeRafId = null;
             const resizeObserver = new ResizeObserver((entries) => {
                 if (!entries || entries.length === 0) return;
+                
+                // 关键修复：在调度 requestAnimationFrame 之前就检查所有标志和嵌套深度
+                // 这样可以防止在 updateParticles 执行期间调度新的 requestAnimationFrame
+                if (window.__starryResizeDisabled || window.__starryUpdatingDimensions || isUpdatingDimensions || isUpdatingParticles || updateDimensionsDepth > 0) {
+                    if (resizeRafId) {
+                        cancelAnimationFrame(resizeRafId);
+                        resizeRafId = null;
+                    }
+                    return;
+                }
+                
                 // 使用 requestAnimationFrame 确保在下一帧更新（更可靠且及时）
                 if (resizeRafId) {
                     cancelAnimationFrame(resizeRafId);
                 }
                 resizeRafId = requestAnimationFrame(() => {
+                    resizeRafId = null; // 立即清空，防止重复取消
+                    // 关键修复：立即检查所有标志和嵌套深度，如果 updateDimensions 正在执行，直接返回
+                    // 这必须在任何其他操作之前检查，防止在 updateParticles 执行期间调用 updateDimensions
+                    if (window.__starryUpdatingDimensions || window.__starryResizeDisabled || isUpdatingDimensions || isUpdatingParticles || updateDimensionsDepth > 0) {
+                        return;
+                    }
                     updateDimensions();
-                    resizeRafId = null;
                 });
             });
             
@@ -1254,13 +1543,28 @@
             // 添加 window resize 事件作为备用（处理开发者工具打开/关闭等情况）
             let resizeTimeout = null;
             function handleWindowResize() {
+                // 关键修复：检查所有标志和嵌套深度，如果 resize 处理被禁用或正在更新，直接返回
+                // 同时取消可能已调度的 requestAnimationFrame
+                if (window.__starryResizeDisabled || window.__starryUpdatingDimensions || isUpdatingDimensions || isUpdatingParticles || updateDimensionsDepth > 0) {
+                    if (resizeTimeout) {
+                        cancelAnimationFrame(resizeTimeout);
+                        resizeTimeout = null;
+                    }
+                    return;
+                }
+                
                 // 使用 requestAnimationFrame 确保及时响应
                 if (resizeTimeout) {
                     cancelAnimationFrame(resizeTimeout);
                 }
                 resizeTimeout = requestAnimationFrame(() => {
+                    resizeTimeout = null; // 立即清空，防止重复取消
+                    // 关键修复：立即检查所有标志和嵌套深度，如果 updateDimensions 正在执行，直接返回
+                    // 这必须在任何其他操作之前检查，防止在 updateParticles 执行期间调用 updateDimensions
+                    if (window.__starryUpdatingDimensions || window.__starryResizeDisabled || isUpdatingDimensions || isUpdatingParticles || updateDimensionsDepth > 0) {
+                        return;
+                    }
                     updateDimensions();
-                    resizeTimeout = null;
                 });
             }
             
@@ -1270,7 +1574,10 @@
             window.addEventListener('orientationchange', () => {
                 // 屏幕旋转后需要等待布局完成
                 setTimeout(() => {
-                    updateDimensions();
+                    // 检查所有标志和嵌套深度，避免在更新期间触发
+                    if (!window.__starryUpdatingDimensions && !window.__starryResizeDisabled && !isUpdatingDimensions && !isUpdatingParticles && updateDimensionsDepth === 0) {
+                        updateDimensions();
+                    }
                 }, 100);
             });
             
@@ -1285,8 +1592,8 @@
             canvas.addEventListener('mouseleave', handleMouseLeave);
             canvas.addEventListener('touchend', handleTouchEnd);
             
-            // 启动动画
-            animate();
+            // 启动动画（使用帧率限制）
+            animate(performance.now());
             
             // 控制面板事件处理
             const textInput = document.getElementById('starry-text');
@@ -1297,11 +1604,19 @@
             // 顶部输入框事件处理
             if (headerTextInput) {
                 headerTextInput.addEventListener('input', (e) => {
-                    text = e.target.value.toUpperCase() || 'MG-MANGO';
-                    updateParticles();
+                    const inputValue = e.target.value.trim();
+                    // 确保 text 不为空，如果为空则使用默认值
+                    const newText = inputValue ? inputValue.toUpperCase() : 'MG-MANGO';
+                    // 只有当文字真正改变时才更新
+                    if (newText !== text) {
+                        text = newText;
+                        console.log('输入框文字更新:', text); // 调试信息
+                        // 立即更新粒子
+                        updateParticles();
+                    }
                     // 同步到控制面板输入框（如果存在）
                     if (textInput) {
-                        textInput.value = e.target.value.toUpperCase();
+                        textInput.value = text;
                     }
                 });
             }
@@ -1309,11 +1624,14 @@
             // 原有控制面板输入框（如果显示的话）
             if (textInput) {
                 textInput.addEventListener('input', (e) => {
-                    text = e.target.value.toUpperCase() || 'MG-MANGO';
+                    const inputValue = e.target.value.trim();
+                    // 确保 text 不为空，如果为空则使用默认值
+                    text = inputValue ? inputValue.toUpperCase() : 'MG-MANGO';
+                    // 立即更新粒子
                     updateParticles();
                     // 同步到顶部输入框
                     if (headerTextInput) {
-                        headerTextInput.value = e.target.value.toUpperCase();
+                        headerTextInput.value = text;
                     }
                 });
             }

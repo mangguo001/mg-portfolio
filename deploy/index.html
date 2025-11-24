@@ -3151,8 +3151,8 @@
         // ========================================================
         const CDN_CONFIG = {
             // ========== 七牛云 CDN 配置（优先使用） ==========
-            // 设置为 true 启用七牛云 CDN，设置为 false 则使用 jsDelivr 备用方案
-            useQiniuCDN: true,  // 改为 false 可禁用七牛云，使用 jsDelivr
+            // GitHub Pages 环境自动禁用七牛云，使用 jsDelivr；本地或七牛云部署时启用七牛云
+            useQiniuCDN: !window.location.hostname.includes('github.io'),
             
             // 七牛云 CDN 域名（请替换为你的实际域名）
             // 方式一：使用默认测试域名（格式：https://你的空间名.bkt.clouddn.com/）

@@ -3034,7 +3034,7 @@
         function handleCoverError(img, videoFile) {
             const src = img.src;
             const baseName = videoFile.replace(/\.[^/.]+$/, '');
-            const assetPath = './assets/';
+            const assetPath = getAssetPath();
             
             console.log('封面图加载失败，尝试其他格式:', src);
             
@@ -3147,6 +3147,43 @@
         }
 
         // ========================================================
+        // 🌐 CDN 配置（解决中国访问 GitHub Pages 慢的问题）
+        // ========================================================
+        const CDN_CONFIG = {
+            // GitHub 仓库信息
+            githubUser: 'mangguo001',
+            githubRepo: 'mg-portfolio',
+            githubBranch: 'main',
+            
+            // 是否使用 CDN（自动检测：GitHub Pages 环境使用 CDN，本地开发使用相对路径）
+            useCDN: window.location.hostname.includes('github.io') || 
+                    window.location.hostname.includes('netlify.app') ||
+                    window.location.hostname.includes('vercel.app')
+        };
+        
+        // 生成资源路径（assets 文件夹）
+        function getAssetPath() {
+            if (CDN_CONFIG.useCDN) {
+                // 使用 jsDelivr CDN 加速
+                return `https://cdn.jsdelivr.net/gh/${CDN_CONFIG.githubUser}/${CDN_CONFIG.githubRepo}@${CDN_CONFIG.githubBranch}/assets/`;
+            } else {
+                // 本地开发使用相对路径
+                return './assets/';
+            }
+        }
+        
+        // 生成 JSON 数据路径
+        function getDataPath(filename) {
+            if (CDN_CONFIG.useCDN) {
+                // 使用 jsDelivr CDN 加速
+                return `https://cdn.jsdelivr.net/gh/${CDN_CONFIG.githubUser}/${CDN_CONFIG.githubRepo}@${CDN_CONFIG.githubBranch}/_data/${filename}`;
+            } else {
+                // 本地开发使用相对路径
+                return `./_data/${filename}`;
+            }
+        }
+
+        // ========================================================
         // 📦 数据加载功能（从JSON文件加载）
         // ========================================================
         
@@ -3224,7 +3261,7 @@
         // 加载作品数据
         async function loadWorks() {
             try {
-                const response = await fetch('./_data/works.json');
+                const response = await fetch(getDataPath('works.json'));
                 if (!response.ok) {
                     throw new Error('无法加载作品数据');
                 }
@@ -3241,7 +3278,7 @@
         // 加载页面设置
         async function loadSettings() {
             try {
-                const response = await fetch('./_data/settings.json');
+                const response = await fetch(getDataPath('settings.json'));
                 if (!response.ok) {
                     throw new Error('无法加载页面设置');
                 }
@@ -3312,7 +3349,7 @@
         // 生成作品列表
         async function generateWorks() {
             const gallery = document.getElementById('app');
-            const assetPath = './assets/'; // 自动指向 assets 文件夹
+            const assetPath = getAssetPath(); // 自动使用 CDN 或本地路径
             
             // 加载数据和设置
             works = await loadWorks();

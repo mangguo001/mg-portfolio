@@ -3,7 +3,7 @@
 ## 📋 本次工作小结
 
 ### 完成时间
-2024年（当前会话）
+2025年（当前会话）
 
 ### 主要完成内容
 
@@ -73,6 +73,123 @@
 
 **修改文件：**
 - `index.html` - 调整 CSS 样式
+
+---
+
+#### 4. 修复全屏时粒子无法正常显示问题 ✅
+**问题描述：**
+- 全屏时粒子文字无法正常显示，采样失败
+- 即使使用最小步长和最低阈值也无法采样到粒子
+- 控制台报错：`未生成粒子，可能文字太小或无效`
+
+**根本原因：**
+- Canvas 的 `width` 和 `height` 必须是整数，但代码传入的是浮点数（如 `2456.666748046875`）
+- 虽然 Canvas 会自动转换，但后续使用浮点数进行索引计算时会导致错误
+- 采样索引计算：`const index = (y * width + x) * 4;` 使用浮点数 `width` 导致索引偏移
+
+**解决方案：**
+- 将 `width` 和 `height` 转换为整数：`const canvasWidth = Math.floor(width);`
+- 创建 `workingWidth` 和 `workingHeight` 变量，统一使用整数尺寸
+- 所有 Canvas 操作（`clearRect`, `fillText`, `getImageData`）都使用整数尺寸
+- 采样逻辑使用整数尺寸进行索引计算
+
+**技术要点：**
+- Canvas 尺寸必须是整数，即使传入浮点数也会被转换
+- 所有基于 Canvas 尺寸的计算都应使用整数
+- 浮点数尺寸会导致像素索引计算错误，采样失败
+
+**修改文件：**
+- `index.html` - 修复 Canvas 尺寸处理和采样逻辑
+
+---
+
+#### 5. 修复堆栈溢出错误 ✅
+**问题描述：**
+- 频繁报错：`Uncaught RangeError: Maximum call stack size exceeded`
+- 错误发生在 `updateParticles` 和 `updateDimensions` 之间形成递归调用
+
+**根本原因：**
+- `updateParticles` 和 `updateDimensions` 相互调用形成循环
+- ResizeObserver 在 Canvas 尺寸更新时触发新的回调
+- `requestAnimationFrame` 回调在设置标志之前就被调度
+
+**解决方案：**
+- 引入多个标志防止递归：`isUpdatingParticles`, `isUpdatingDimensions`, `updateDimensionsDepth`
+- 在 `updateDimensions` 开始时立即断开 ResizeObserver 和取消 `requestAnimationFrame`
+- 在 ResizeObserver 和 `handleWindowResize` 回调中检查所有标志
+- 使用 `window.__starryResizeDisabled` 全局标志完全禁用 resize 处理
+- `updateParticles` 接受尺寸参数，避免触发 ResizeObserver
+
+**技术要点：**
+- 使用多层防护机制防止递归调用
+- 在更新 Canvas 尺寸时暂时断开 ResizeObserver
+- 使用 `requestAnimationFrame` 延迟重连，避免立即触发
+
+**修改文件：**
+- `index.html` - 添加并发控制和递归防护机制
+
+---
+
+#### 6. 修复移动端粒子超出画面问题 ✅
+**问题描述：**
+- 移动端粒子超出 Canvas 边界
+- 粒子位置计算使用浮点数，导致边界检查失效
+
+**解决方案：**
+- 在动画循环中使用整数尺寸：`const canvasWidth = Math.floor(canvas.width);`
+- 确保粒子创建和更新时使用的尺寸一致
+- 所有 Canvas 操作都使用整数尺寸
+
+**技术要点：**
+- 粒子创建时使用 `workingWidth` 和 `workingHeight`（整数）
+- 粒子更新时也应使用相同的整数尺寸
+- 参考代码没有边界检查，依赖返回原点的力自然拉回粒子
+
+**修改文件：**
+- `index.html` - 统一使用整数尺寸进行粒子更新
+
+---
+
+#### 7. 优化移动端文字位置和边距 ✅
+**问题描述：**
+- 移动端粒子文字与LOGO重叠
+- 左右边距不足，文字太靠近边界
+
+**解决方案：**
+- 调整移动端文字垂直位置：从 `height * 0.5` 改为 `height * 0.35`，避免与LOGO重叠
+- 增加移动端左右边距：`targetWidthRatio` 从 `0.85` 调整为 `0.7`（左右各 15% 边距）
+- 同步文字宽度检查：`maxWidthRatio` 也使用 `0.7`，确保边距生效
+- 优化移动端默认字体大小：使用 15% 的相对尺寸，避免默认值过大
+
+**技术要点：**
+- 移动端文字位置需要与底部LOGO保持距离
+- 边距通过 `targetWidthRatio` 和 `maxWidthRatio` 双重控制
+- 移动端字体大小计算需要考虑 Canvas 尺寸
+
+**修改文件：**
+- `index.html` - 调整移动端文字位置、边距和字体大小计算
+
+---
+
+#### 8. 优化采样逻辑和性能 ✅
+**问题描述：**
+- 采样失败率高，需要多次重试
+- 使用 `Math.max(...textAreaAlpha)` 可能导致堆栈溢出
+
+**解决方案：**
+- 参考参考代码逻辑，简化采样流程
+- 使用固定阈值 128（参考代码）
+- 步长计算使用 `fontSize / 35`（参考代码）
+- 将 `Math.max(...textAreaAlpha)` 改为循环查找最大值，避免大数组堆栈溢出
+- 添加文字绘制验证，确保文字正确绘制后再采样
+
+**技术要点：**
+- 参考代码使用更简单直接的逻辑，更可靠
+- 大数组使用展开运算符会导致堆栈溢出
+- 绘制后立即采样，避免验证步骤导致的数据不一致
+
+**修改文件：**
+- `index.html` - 优化采样逻辑和文字绘制验证
 
 ---
 
@@ -270,6 +387,14 @@
 ---
 
 ## 📅 更新记录
+
+- **2025年（当前会话）** - 重大修复和优化
+  - ✅ 修复全屏时粒子无法正常显示问题（浮点数尺寸问题）
+  - ✅ 修复堆栈溢出错误（递归调用问题）
+  - ✅ 修复移动端粒子超出画面问题
+  - ✅ 优化移动端文字位置和边距
+  - ✅ 优化采样逻辑和性能
+  - ✅ 修复文字绘制验证逻辑
 
 - **2024年** - 初始版本，完成基础功能
   - 修复渐变效果问题
